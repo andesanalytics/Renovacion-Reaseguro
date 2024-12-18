@@ -10,7 +10,10 @@ warnings.simplefilter(action='ignore', category=UserWarning)
 # Importamos librerias que vamos a utilizar
 import pandas as pd
 import numpy as np
+import os
+from zipfile import ZipFile, ZIP_DEFLATED
 from pathlib import Path
+import shutil
 from S1_Parametros_Calculo import archivo_parametros, tipo_calculo, contrato
 from S2_Funciones import asignacion_contratos, asignacion_vigencias, cumulos, licitado_desg_nl, recargos
 from S3_Pre_Procesamiento import pre_procesamiento
@@ -75,8 +78,8 @@ def calculos_licitacion():
     # df_2.groupby(['POL_PROD','PRODUCTO','TIPO_POLIZA_LETRA'])[['ICAPITAL','MONTO ASEGURADO','REGISTROS']].sum().reset_index().to_csv(ruta_salidas+'Montos Asegurados df_2 POL_PROD '+contrato+'.csv',sep=';',index=False)
     # df_5.groupby(['POL_PROD','PRODUCTO','TIPO_POLIZA_LETRA'])[['ICAPITAL','MONTO ASEGURADO','REGISTROS']].sum().reset_index().to_csv(ruta_salidas+'Montos Asegurados df_5 POL_PROD '+contrato+'.csv',sep=';',index=False)
     nombre_archivo = f'Detalle Licitacion {contrato}'
-    df_5[campos].to_csv(ruta_salidas+f'{nombre_archivo}.txt',sep=';',decimal=',',date_format='%d-%m-%Y',index=False)
-    respaldar_proceso(nombre_archivo, ruta_salidas, elimina_origen=1)
+    df_5[campos].to_csv(ruta_salidas+f'{nombre_archivo}.txt',sep=';',decimal='.',date_format='%d-%m-%Y',index=False)
+    respaldar_proceso(nombre_archivo, ruta_salidas, elimina_origen=0)
     
 
 def respaldar_proceso(nombre_archivo, ruta_salidas, elimina_origen=1):
