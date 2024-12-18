@@ -74,6 +74,22 @@ def calculos_licitacion():
     # df_0.groupby(['POL_PROD','PRODUCTO','TIPO_POLIZA_LETRA'])[['ICAPITAL','MONTO ASEGURADO','REGISTROS']].sum().reset_index().to_csv(ruta_salidas+'Montos Asegurados df_0 POL_PROD '+contrato+'.csv',sep=';',index=False)
     # df_2.groupby(['POL_PROD','PRODUCTO','TIPO_POLIZA_LETRA'])[['ICAPITAL','MONTO ASEGURADO','REGISTROS']].sum().reset_index().to_csv(ruta_salidas+'Montos Asegurados df_2 POL_PROD '+contrato+'.csv',sep=';',index=False)
     # df_5.groupby(['POL_PROD','PRODUCTO','TIPO_POLIZA_LETRA'])[['ICAPITAL','MONTO ASEGURADO','REGISTROS']].sum().reset_index().to_csv(ruta_salidas+'Montos Asegurados df_5 POL_PROD '+contrato+'.csv',sep=';',index=False)
-    df_5[campos].to_csv(ruta_salidas+'Detalle Licitacion '+contrato+'.txt',sep=';',decimal=',',date_format='%d-%m-%Y',index=False)
+    nombre_archivo = f'Detalle Licitacion {contrato}'
+    df_5[campos].to_csv(ruta_salidas+f'{nombre_archivo}.txt',sep=';',decimal=',',date_format='%d-%m-%Y',index=False)
+    respaldar_proceso(nombre_archivo, ruta_salidas, elimina_origen=1)
     
 
+def respaldar_proceso(nombre_archivo, ruta_salidas, elimina_origen=1):
+    # Comprimir archivos del grupo en un archivo zip
+    ruta_zip = os.path.join(ruta_salidas, f'{nombre_archivo}.zip')
+    with ZipFile(ruta_zip, 'w',ZIP_DEFLATED) as zipf:
+        archivo_origen = os.path.join(ruta_salidas, f'{nombre_archivo}.txt')
+        zipf.write(archivo_origen, f'{nombre_archivo}.txt')
+    # Verificar si se debe eliminar el origen
+    if elimina_origen == 1:
+        #Verifica si es un archivo y lo elimina
+        if os.path.isfile(archivo_origen):
+            os.remove(archivo_origen)
+        #Elimina directorio
+        else:
+            shutil.rmtree(archivo_origen)
