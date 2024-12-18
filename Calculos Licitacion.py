@@ -25,12 +25,9 @@ def calculos_licitacion():
     parametros_contratos = pd.read_excel(io=archivo_parametros, sheet_name='Matriz Vigencias')
     tasas_reaseguro = pd.read_excel(io=archivo_parametros, sheet_name='Matriz Reaseguradores')
     cobs_old = pd.read_excel(io=archivo_parametros, sheet_name='Cobs Reas Desg NL Licitacion')
-    prods_ges = pd.read_excel(io=archivo_parametros, sheet_name='Prod GES Licitacion')
     ramo_reas_final = pd.read_excel(io=archivo_parametros, sheet_name='Ramo Reas Final Desg NL Licitac')
     nombre_prods = pd.read_excel(io=archivo_parametros, sheet_name='Nombre Productos Licitacion')
     ramo_reas_otros = pd.read_excel(io=archivo_parametros, sheet_name='Cobs Reas Otros Licitacion')
-    # No lee archivo de recargos. Ahora es query
-    # extra_prima = pd.read_excel(io=archivo_parametros, sheet_name='Extra Prima')
     
     # Calculos habituales del cierre
     df_0 = pre_procesamiento(tipo_calculo)
@@ -38,15 +35,11 @@ def calculos_licitacion():
     df_0 = recargos(df_0,calcula_recargos=0)
     df_1 = asignacion_contratos(df_0, contrato_cob, mantiene_na = 1)
     
-    set(df_1.columns).difference(set(df_0.columns))
-    
     # Momentaneo, solo para poder revisar bien l contrato excedente 3000
     # for col in set(df_1.columns).difference(set(df_0.columns)):
     #     df_1[col] = np.where(df_1[col].isin([88,101,193]), np.nan, df_1[col])
     df_1 = df_1[~df_1['PRODUCTO'].isin([88,101,193])].copy()
 
-    
-    
     df_2,df_deleted_vigencia = asignacion_vigencias(df_1,parametros_contratos,tipo_calculo)
     df_3 = cumulos(df_2, 'RIESGO LIMITE INDIVIDUAL')
     df_4 = cumulos(df_3, 'RIESGO LIMITE CONTRATO')
@@ -69,9 +62,6 @@ def calculos_licitacion():
     elif contrato in ['Digital Klare','K-Fijo','AP + Urgencias Medicas','Multisocios']:
         df_5=df_5.merge(ramo_reas_otros,how='left',on=['POL_PROD','CODIGO COBERTURA'])
     df_5=df_5.merge(nombre_prods,how='left',on=['PRODUCTO','BASE'])
-    df_5=df_5.merge(prods_ges,how='left',on=['POLIZA','PRODUCTO'])
-    df_5['PRODUCTO GES']=np.where(df_5['PRODUCTO GES'].isnull(),df_5['PRODUCTO'],df_5['PRODUCTO GES'])
-    # CORREGIR ESTO
     df_5['RAMO REAS CORREGIDO']=np.where(('DESG' not in df_5['NOMBRE PRODUCTO'])&(df_5['RAMO REAS']=='DESGRAVAMEN'),'VIDA',df_5['RAMO REAS'])
     df_5=df_5.merge(ramo_reas_final,how='left',on=['TIPO_POLIZA_LETRA','RAMO REAS CORREGIDO'])
     if contrato!='K-Fijo':campos=['RUT','SEXO','FEC_NAC','SSEGURO','POLIZA','CERTIFICADO','PRODUCTO','CODIGO COBERTURA IAXIS','PLAN','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','ICAPITAL','PRIMA NETA ANUAL','FORMA_PAGO_CODIGO','BASE','TIPO_POLIZA_LETRA','CODIGO COBERTURA','EDAD INGRESO','EXPOSICION MENSUAL','TIPO ASEGURADO','EDAD RENOVACION','MESES RENTA','MONTO ASEGURADO','CONTRATO REASEGURO','COBERTURA DEL CONTRATO','CAPITAL RETENIDO TOTAL','CAPITAL CEDIDO TOTAL','PORCENTAJE CEDIDO FINAL','RAMO REAS','RAMO REAS CORREGIDO','COB REAS','PRODUCTO GES','RAMO REAS FINAL','NOMBRE PRODUCTO','RECARGO']
