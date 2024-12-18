@@ -1,0 +1,1 @@
+select distinct rpydetpolnum POLIZA, 'Y' TIPO_POLIZA_LETRA from altavida.rpydetrvahis where rpydetano in (2023,2024)
