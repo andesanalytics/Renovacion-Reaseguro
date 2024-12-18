@@ -22,7 +22,7 @@ from S3_Pre_Procesamiento import pre_procesamiento
 
 def calculos_licitacion():
     # Traemos tablas de parametrizaciones que vamos a usar
-    ruta_salidas='2 Output\\Prima de Reaseguro\\2024-12-18 V1\\'
+    ruta_salidas='2 Output\\Prima de Reaseguro\\2024-12-18 V3\\'
     Path(ruta_salidas).mkdir(parents=True, exist_ok=True)
     contrato_cob = pd.read_excel(io=archivo_parametros, sheet_name='Matriz Contrato-Cobertura')
     parametros_contratos = pd.read_excel(io=archivo_parametros, sheet_name='Matriz Vigencias')
@@ -59,10 +59,6 @@ def calculos_licitacion():
     del df_0, df_1, df_2, df_3, df_4, df_5, 
     
     # Funcion para la licitacion
-    sum(df['RAMO REAS FINAL'].isnull())
-    df_aux = df.drop(labels = ['RAMO REAS','COB REAS', 'origen'], axis = 1).copy()
-    df = df_aux.copy()
-    
     if contrato=='Desgravamen No Licitado':
         df = cruce_left(df, cobs_old, ['CODIGO COBERTURA'], ['CODIGO COBERTURA'],name='cobs_old', ruta_output = ruta_salidas)
     elif contrato in ['Digital Klare','K-Fijo','AP + Urgencias Medicas','Multisocios']:
@@ -70,8 +66,8 @@ def calculos_licitacion():
     df = cruce_left(df, nombre_prods, ['PRODUCTO','BASE'], ['PRODUCTO','BASE'],name='nombre_prods', ruta_output = ruta_salidas)
     df['RAMO REAS CORREGIDO']=np.where(('DESG' not in df['NOMBRE PRODUCTO'])&(df['RAMO REAS']=='DESGRAVAMEN'),'VIDA',df['RAMO REAS'])
     df = cruce_left(df, ramo_reas_final, ['TIPO_POLIZA_LETRA','RAMO REAS CORREGIDO'], ['TIPO_POLIZA_LETRA','RAMO REAS CORREGIDO'],name='ramo_reas_final', ruta_output = ruta_salidas)
-    if contrato!='K-Fijo':campos=['RUT','SEXO','FEC_NAC','SSEGURO','POLIZA','CERTIFICADO','PRODUCTO','CODIGO COBERTURA IAXIS','PLAN','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','ICAPITAL','PRIMA NETA ANUAL','FORMA_PAGO_CODIGO','BASE','TIPO_POLIZA_LETRA','CODIGO COBERTURA','EDAD INGRESO','EXPOSICION MENSUAL','TIPO ASEGURADO','EDAD RENOVACION','MESES RENTA','MONTO ASEGURADO','CONTRATO REASEGURO','COBERTURA DEL CONTRATO','CAPITAL RETENIDO TOTAL','CAPITAL CEDIDO TOTAL','PORCENTAJE CEDIDO FINAL','RAMO REAS','RAMO REAS CORREGIDO','COB REAS','PRODUCTO GES','RAMO REAS FINAL','NOMBRE PRODUCTO','RECARGO']
-    else: campos=['RUT','SEXO','FEC_NAC','SSEGURO','POLIZA','CERTIFICADO','PRODUCTO','CODIGO COBERTURA IAXIS','PLAN','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','ICAPITAL','PRIMA NETA ANUAL','FORMA_PAGO_CODIGO','BASE','TIPO_POLIZA_LETRA','CODIGO COBERTURA','EDAD INGRESO','EXPOSICION MENSUAL','EDAD RENOVACION','MONTO ASEGURADO','CONTRATO REASEGURO','COBERTURA DEL CONTRATO','CAPITAL RETENIDO TOTAL','CAPITAL CEDIDO TOTAL','PORCENTAJE CEDIDO FINAL','RAMO REAS','RAMO REAS CORREGIDO','COB REAS','PRODUCTO GES','RAMO REAS FINAL','NOMBRE PRODUCTO','RECARGO']
+    if contrato!='K-Fijo':campos=['RUT','SEXO','FEC_NAC','SSEGURO','POLIZA','CERTIFICADO','PRODUCTO','CODIGO COBERTURA IAXIS','PLAN','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','ICAPITAL','PRIMA NETA ANUAL','FORMA_PAGO_CODIGO','BASE','TIPO_POLIZA_LETRA','CODIGO COBERTURA','EDAD INGRESO','EXPOSICION MENSUAL','TIPO ASEGURADO','EDAD RENOVACION','MESES RENTA','MONTO ASEGURADO','CONTRATO REASEGURO','COBERTURA DEL CONTRATO','CAPITAL RETENIDO TOTAL','CAPITAL CEDIDO TOTAL','PORCENTAJE CEDIDO FINAL','RAMO REAS','RAMO REAS CORREGIDO','COB REAS','RAMO REAS FINAL','NOMBRE PRODUCTO','RECARGO']
+    else: campos=['RUT','SEXO','FEC_NAC','SSEGURO','POLIZA','CERTIFICADO','PRODUCTO','CODIGO COBERTURA IAXIS','PLAN','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','ICAPITAL','PRIMA NETA ANUAL','FORMA_PAGO_CODIGO','BASE','TIPO_POLIZA_LETRA','CODIGO COBERTURA','EDAD INGRESO','EXPOSICION MENSUAL','EDAD RENOVACION','MONTO ASEGURADO','CONTRATO REASEGURO','COBERTURA DEL CONTRATO','CAPITAL RETENIDO TOTAL','CAPITAL CEDIDO TOTAL','PORCENTAJE CEDIDO FINAL','RAMO REAS','RAMO REAS CORREGIDO','COB REAS','RAMO REAS FINAL','NOMBRE PRODUCTO','RECARGO']
 
     # Reporteria
     df[df['CONTRATO REASEGURO'].notnull()].groupby(['BASE','PRODUCTO','POL_PROD','TIPO_POLIZA_LETRA','CODIGO COBERTURA','CODIGO COBERTURA IAXIS','COBERTURA DEL CONTRATO']).size().reset_index().to_csv(ruta_salidas+f'Resumen Asignaciones de Reaseguro - {contrato}.csv',sep=';',index=False, date_format='%d-%m-%Y',decimal='.')
