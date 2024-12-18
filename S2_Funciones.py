@@ -1257,7 +1257,7 @@ def check_campo(df,campo):
     else: return 1            
 
 
-def cruce_left(df_1, df_2, informa_no_cruces, left_on, right_on):
+def cruce_left(df_1, df_2, informa_no_cruces, left_on, right_on, suffixes=('_df1', '_df2'), name = '', ruta_output=ruta_output):
 
     # Realizar merge, especificando las columnas de fusión con left_on y right_on
     # Los sufijos _df1 y _df2 se agregan a los nombres de las columnas para diferenciar las columnas originales de cada DataFrame.
@@ -1274,7 +1274,7 @@ def cruce_left(df_1, df_2, informa_no_cruces, left_on, right_on):
     # Informar en archivo.txt si es necesario
     if informa_no_cruces == 1:
         # Guarda esos registros en un archivo no_cruces.txt en formato de texto tabular (separado por tabuladores).
-        no_cruces.to_csv(ruta_output+'no_cruces.txt', index=False,sep=separador_output,decimal=decimal_output)
+        no_cruces.to_csv(f'{ruta_output}{name} no cruces.txt', index=False,sep=separador_output,decimal=decimal_output)
     if len(merged_df) > len(df_1) :
         # Identificar duplicados en merged_df que no estaban en df_1
         duplicados_df_2 =df_2[df_2.duplicated(subset=right_on, keep=False)]
@@ -1282,7 +1282,7 @@ def cruce_left(df_1, df_2, informa_no_cruces, left_on, right_on):
         duplicados_comunes = duplicados_df_2.merge(df_1_sin_duplicados, how='inner', left_on=right_on, right_on=left_on)
 
 
-        duplicados_comunes[df_2.columns].to_csv(ruta_output+'duplicados.csv',sep=separador_output,decimal=decimal_output)
+        duplicados_comunes[df_2.columns].to_csv(f'{ruta_output}{name} duplicados.txt',sep=separador_output,decimal=decimal_output)
         print("Registros duplicados:")
         print(duplicados_comunes[df_2.columns])
     else:

@@ -22,11 +22,10 @@ from S3_Pre_Procesamiento import pre_procesamiento
 
 def calculos_licitacion():
     # Traemos tablas de parametrizaciones que vamos a usar
-    ruta_salidas='2 Output\\Prima de Reaseguro\\Pruebas Data Light\\'
+    ruta_salidas='2 Output\\Prima de Reaseguro\\2024-12-18 V1\\'
     Path(ruta_salidas).mkdir(parents=True, exist_ok=True)
     contrato_cob = pd.read_excel(io=archivo_parametros, sheet_name='Matriz Contrato-Cobertura')
     parametros_contratos = pd.read_excel(io=archivo_parametros, sheet_name='Matriz Vigencias')
-    tasas_reaseguro = pd.read_excel(io=archivo_parametros, sheet_name='Matriz Reaseguradores')
     cobs_old = pd.read_excel(io=archivo_parametros, sheet_name='Cobs Reas Desg NL Licitacion')
     ramo_reas_final = pd.read_excel(io=archivo_parametros, sheet_name='Ramo Reas Final Desg NL Licitac')
     nombre_prods = pd.read_excel(io=archivo_parametros, sheet_name='Nombre Productos Licitacion')
@@ -54,31 +53,30 @@ def calculos_licitacion():
     df_5['CAPITAL CEDIDO TOTAL'] = df_5['CAPITAL CEDIDO POST EXCEDENTE'] + df_5['CAPITAL CEDIDO QS']
     df_5['PORCENTAJE CEDIDO FINAL']=np.where(df_5['MONTO ASEGURADO']>0,df_5['CAPITAL CEDIDO TOTAL']/df_5['MONTO ASEGURADO'],df_5['CESION QS']*df_5['PORCENTAJE LIMITE INDIVIDUAL']*df_5['PORCENTAJE LIMITE CONTRATO']*df_5['PORCENTAJE RETENCION EXCEDENTE'])
     
+    df = df_5.copy()
+    
     # Eliminamos df que no usaremos
-    del df_2, df_3, df_4
+    del df_0, df_1, df_2, df_3, df_4, df_5, 
     
     
     # Funcion para la licitacion
     
     if contrato=='Desgravamen No Licitado':
-        df_5=df_5.merge(cobs_old,how='left',on=['CODIGO COBERTURA'])
+        df=df.merge(cobs_old,how='left',on=['CODIGO COBERTURA'])
     elif contrato in ['Digital Klare','K-Fijo','AP + Urgencias Medicas','Multisocios']:
-        df_5=df_5.merge(ramo_reas_otros,how='left',on=['POL_PROD','CODIGO COBERTURA'])
-    df_5=df_5.merge(nombre_prods,how='left',on=['PRODUCTO','BASE'])
-    df_5['RAMO REAS CORREGIDO']=np.where(('DESG' not in df_5['NOMBRE PRODUCTO'])&(df_5['RAMO REAS']=='DESGRAVAMEN'),'VIDA',df_5['RAMO REAS'])
-    df_5=df_5.merge(ramo_reas_final,how='left',on=['TIPO_POLIZA_LETRA','RAMO REAS CORREGIDO'])
+        df=df.merge(ramo_reas_otros,how='left',on=['POL_PROD','CODIGO COBERTURA'])
+    df=df.merge(nombre_prods,how='left',on=['PRODUCTO','BASE'])
+    df['RAMO REAS CORREGIDO']=np.where(('DESG' not in df['NOMBRE PRODUCTO'])&(df['RAMO REAS']=='DESGRAVAMEN'),'VIDA',df['RAMO REAS'])
+    df=df.merge(ramo_reas_final,how='left',on=['TIPO_POLIZA_LETRA','RAMO REAS CORREGIDO'])
     if contrato!='K-Fijo':campos=['RUT','SEXO','FEC_NAC','SSEGURO','POLIZA','CERTIFICADO','PRODUCTO','CODIGO COBERTURA IAXIS','PLAN','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','ICAPITAL','PRIMA NETA ANUAL','FORMA_PAGO_CODIGO','BASE','TIPO_POLIZA_LETRA','CODIGO COBERTURA','EDAD INGRESO','EXPOSICION MENSUAL','TIPO ASEGURADO','EDAD RENOVACION','MESES RENTA','MONTO ASEGURADO','CONTRATO REASEGURO','COBERTURA DEL CONTRATO','CAPITAL RETENIDO TOTAL','CAPITAL CEDIDO TOTAL','PORCENTAJE CEDIDO FINAL','RAMO REAS','RAMO REAS CORREGIDO','COB REAS','PRODUCTO GES','RAMO REAS FINAL','NOMBRE PRODUCTO','RECARGO']
     else: campos=['RUT','SEXO','FEC_NAC','SSEGURO','POLIZA','CERTIFICADO','PRODUCTO','CODIGO COBERTURA IAXIS','PLAN','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','ICAPITAL','PRIMA NETA ANUAL','FORMA_PAGO_CODIGO','BASE','TIPO_POLIZA_LETRA','CODIGO COBERTURA','EDAD INGRESO','EXPOSICION MENSUAL','EDAD RENOVACION','MONTO ASEGURADO','CONTRATO REASEGURO','COBERTURA DEL CONTRATO','CAPITAL RETENIDO TOTAL','CAPITAL CEDIDO TOTAL','PORCENTAJE CEDIDO FINAL','RAMO REAS','RAMO REAS CORREGIDO','COB REAS','PRODUCTO GES','RAMO REAS FINAL','NOMBRE PRODUCTO','RECARGO']
 
     # Reporteria
-    # df_1[df_1['CONTRATO REASEGURO'].isnull()].to_csv(ruta_salidas+f'Registros sin Asignación de Reaseguro - {contrato}.csv',sep=';',index=False, date_format='%d-%m-%Y',decimal='.')
-    df_1[df_1['CONTRATO REASEGURO'].notnull()].groupby(['BASE','PRODUCTO','POL_PROD','TIPO_POLIZA_LETRA','CODIGO COBERTURA','CODIGO COBERTURA IAXIS','COBERTURA DEL CONTRATO']).size().reset_index().to_csv(ruta_salidas+f'Resumen Asignaciones de Reaseguro - {contrato}.csv',sep=';',index=False, date_format='%d-%m-%Y',decimal='.')
-    df_1[df_1['CONTRATO REASEGURO'].isnull()].groupby(['BASE','PRODUCTO','POL_PROD','TIPO_POLIZA_LETRA','CODIGO COBERTURA','CODIGO COBERTURA IAXIS']).size().reset_index().to_csv(ruta_salidas+f'Resumen Registros sin Asignacion de Reaseguro - {contrato}.csv',sep=';',index=False, date_format='%d-%m-%Y',decimal='.')
-    # df_0.groupby(['POL_PROD','PRODUCTO','TIPO_POLIZA_LETRA'])[['ICAPITAL','MONTO ASEGURADO','REGISTROS']].sum().reset_index().to_csv(ruta_salidas+'Montos Asegurados df_0 POL_PROD '+contrato+'.csv',sep=';',index=False)
-    # df_2.groupby(['POL_PROD','PRODUCTO','TIPO_POLIZA_LETRA'])[['ICAPITAL','MONTO ASEGURADO','REGISTROS']].sum().reset_index().to_csv(ruta_salidas+'Montos Asegurados df_2 POL_PROD '+contrato+'.csv',sep=';',index=False)
-    # df_5.groupby(['POL_PROD','PRODUCTO','TIPO_POLIZA_LETRA'])[['ICAPITAL','MONTO ASEGURADO','REGISTROS']].sum().reset_index().to_csv(ruta_salidas+'Montos Asegurados df_5 POL_PROD '+contrato+'.csv',sep=';',index=False)
+    df[df['CONTRATO REASEGURO'].notnull()].groupby(['BASE','PRODUCTO','POL_PROD','TIPO_POLIZA_LETRA','CODIGO COBERTURA','CODIGO COBERTURA IAXIS','COBERTURA DEL CONTRATO']).size().reset_index().to_csv(ruta_salidas+f'Resumen Asignaciones de Reaseguro - {contrato}.csv',sep=';',index=False, date_format='%d-%m-%Y',decimal='.')
+    df[df['CONTRATO REASEGURO'].isnull()].groupby(['BASE','PRODUCTO','POL_PROD','TIPO_POLIZA_LETRA','CODIGO COBERTURA','CODIGO COBERTURA IAXIS']).size().reset_index().to_csv(ruta_salidas+f'Resumen Registros sin Asignacion de Reaseguro - {contrato}.csv',sep=';',index=False, date_format='%d-%m-%Y',decimal='.')
+    df.groupby(['POL_PROD','PRODUCTO','TIPO_POLIZA_LETRA'])[['ICAPITAL','MONTO ASEGURADO','REGISTROS']].sum().reset_index().to_csv(ruta_salidas+'Montos Asegurados df POL_PROD '+contrato+'.csv',sep=';',index=False)
     nombre_archivo = f'Detalle Licitacion {contrato}'
-    df_5[campos].to_csv(ruta_salidas+f'{nombre_archivo}.txt',sep=';',decimal='.',date_format='%d-%m-%Y',index=False)
+    df[campos].to_csv(ruta_salidas+f'{nombre_archivo}.txt',sep=';',decimal='.',date_format='%d-%m-%Y',index=False)
     respaldar_proceso(nombre_archivo, ruta_salidas, elimina_origen=0)
     
 
