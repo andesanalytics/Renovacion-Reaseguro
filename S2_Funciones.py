@@ -166,6 +166,8 @@ def asignacion_contratos(df,tabla_parametros,mantiene_na=0):
     if mantiene_na==1: return pd.concat([df_final,df],axis=0)
     else: return df_final
 
+# df,tabla_parametros,tipo_calculo = df_1,parametros_contratos,tipo_calculo
+# sum(tabla_parametros['COBERTURA DE']==331)
 
 def asignacion_vigencias(df,tabla_parametros,tipo_calculo,mantiene_na=0):
     """ Para siniestros, asigna a la vigencia a la cual pertenece 
@@ -590,7 +592,7 @@ def calcula_exposicion(df,campo_inicio,campo_fin,exp_days,fec_bop,fec_eop):
     return serie_exposicion
 
 
-def calcula_edad(rut_series,fec_nac_series,fec_corte_series,edad_perdidos,edad_tope,reporta_issues=0):
+def calcula_edad(rut_series,fec_nac_series,fec_corte_series,edad_perdidos,edad_tope,reporta_issues = 0, edad_inf = 0, aplica_edad_prom_cartera = 0):
     """ Funcion de calculo de edad """
     df_ruts=pd.DataFrame({'RUT':rut_series,'FEC_NAC':fec_nac_series})
     df_fechas_nac=pd.DataFrame({'RUT':rut_series,'FEC_NAC':fec_nac_series}).groupby(['RUT']).min().reset_index()
@@ -605,15 +607,24 @@ def calcula_edad(rut_series,fec_nac_series,fec_corte_series,edad_perdidos,edad_t
     else:
         fec_corte_year=fec_corte_series.year
         fec_corte_monthday=fec_corte_series.month*100+fec_corte_series.day
-    edad_series=np.where(edad_malas==1,edad_perdidos,fec_corte_year-serie_year+np.where(serie_monthday<=fec_corte_monthday,0,-1))
-    registros_issues=np.where((edad_malas==1)|(np.where(edad_series>edad_tope,1,0)==1),1,0)
+    
+    edad_promedio_cartera = np.nanmean(np.where(edad_malas==1,np.nan,fec_corte_year-serie_year+np.where(serie_monthday<=fec_corte_monthday,0,-1)))
+    if aplica_edad_prom_cartera == 0:
+        edad_series=np.where(edad_malas==1,edad_perdidos,fec_corte_year-serie_year+np.where(serie_monthday<=fec_corte_monthday,0,-1))
+    elif aplica_edad_prom_cartera == 1:   
+        edad_series=np.where(edad_malas==1,edad_promedio_cartera,fec_corte_year-serie_year+np.where(serie_monthday<=fec_corte_monthday,0,-1))
+    # edad_promedio_cartera = edad_series.mean()
+    registros_issues=np.where((edad_malas==1)|(np.where(edad_series>edad_tope,1,0)==1)|(np.where(edad_series<edad_inf,1,0)==1),1,0)
     cont_fecnac_malas=sum(edad_malas)
     cont_fecnac_tope=sum(edad_series>edad_tope)
-    edad_series_tope=np.where(edad_series>edad_tope,edad_tope,edad_series)
+    if aplica_edad_prom_cartera == 0:
+        edad_series_final=np.where(edad_series>edad_tope,edad_tope,np.where(edad_series<edad_inf,edad_inf,edad_series))
+    elif aplica_edad_prom_cartera == 1:
+        edad_series_final=np.where(edad_series>edad_tope,edad_promedio_cartera,np.where(edad_series<edad_inf,edad_promedio_cartera,edad_series))
     if cont_fecnac_malas>0: escribe_reporta(archivo_reporte,'La cantidad de registros con la fecha nula o mala es de {} registros'.format(cont_fecnac_malas))
     if cont_fecnac_tope>0: escribe_reporta(archivo_reporte,'Un total de {} registros tienen edad mayor a 108 año. Fueron topados en 108 para poder encontrar valores en las tablas de incidencia'.format(cont_fecnac_tope))
-    if reporta_issues==0: return edad_series_tope
-    else: return edad_series_tope,registros_issues
+    if reporta_issues==0: return edad_series_final
+    else: return edad_series_final,registros_issues
     
 
 def cruce_comisiones(df_aux,comisiones):
@@ -697,7 +708,9 @@ def recargos(df, calcula_recargos=1):
     if calcula_recargos==1:
         df_iaxis['RECARGO']=(df_iaxis['VALOR_RECARGO_SOBREPRIMA'].fillna(0)/100*df_iaxis['PRIMA REASEGURO SIN RECARGO']+df_iaxis['VALOR_RECARGO_EXTRAPRIMA'].fillna(0)/1000*df_iaxis['CAPITAL CEDIDO TOTAL']*1/12)*df_iaxis['PARTICIPACION DEL REASEGURADOR']
         df_iaxis[df_iaxis['RECARGO']>0].to_csv(ruta_output+'3. Recargos iAxis Detalle.csv',sep=';')
-    else: df_iaxis['RECARGO']=np.where((df_iaxis['VALOR_RECARGO_SOBREPRIMA'].isnull())&(df_iaxis['VALOR_RECARGO_EXTRAPRIMA'].isnull()),0,1)
+    else: 
+        # df_iaxis['RECARGO']=np.where((df_iaxis['VALOR_RECARGO_SOBREPRIMA'].isnull())&(df_iaxis['VALOR_RECARGO_EXTRAPRIMA'].isnull()),0,1)
+        df_iaxis['RECARGO']=df_iaxis['VALOR_RECARGO_SOBREPRIMA'].fillna(0)/100
     # CALCULOS PARA GES
     # recargos_ges_cr=pd.read_csv(ruta_recargos+'1. Inputs Auxiliares\\Recargos\\'+'Recargos GES Credit '+str(periodo)+'.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
     # recargos_ges_ind=pd.read_csv(ruta_recargos+'1. Inputs Auxiliares\\Recargos\\'+'Recargos GES Individuales '+str(periodo)+'.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
@@ -713,37 +726,17 @@ def recargos(df, calcula_recargos=1):
                         df_ges['PRIMA REASEGURO SIN RECARGO']*df_ges['PORCENTAJE_RECARGO'].fillna(0)/100+\
                         np.where((df_ges['FECHA_EFECTO'].dt.to_period('M') + df_ges['MESES_EXTRAPRIMA'].fillna(0).astype(int)).dt.to_timestamp()<fecha_inicio_mes,0,df_ges['CAPITAL CEDIDO TOTAL']*df_ges['EXTRAPRIMA'].fillna(0)/1000)*1/12)*df_ges['PARTICIPACION DEL REASEGURADOR']
         df_ges[df_ges['RECARGO']>0].to_csv(ruta_output+'3. Recargos GES Detalle.csv',sep=';')
-    else: df_ges['RECARGO']=np.where((df_ges['ORIGEN'].isnull())&(df_ges['PORCENTAJE_RECARGO'].isnull()),0,1)
+    else: 
+        # df_ges['RECARGO']=np.where((df_ges['ORIGEN'].isnull())&(df_ges['PORCENTAJE_RECARGO'].isnull()),0,1)
+        df_ges['RECARGO'] = np.where((df_ges['FECHA_EFECTO'].dt.to_period('M') + df_ges['MESES_SOBREPRIMA_ACTIVIDAD'].fillna(0).astype(int)).dt.to_timestamp()<fecha_inicio_mes,0,df_ges['SOBREPRIMA_ACTIVIDAD'].fillna(0)/100)+\
+                        np.where((df_ges['FECHA_EFECTO'].dt.to_period('M') + df_ges['MESES_SOBREPRIMA_MEDICO'].fillna(0).astype(int)).dt.to_timestamp()<fecha_inicio_mes,0,df_ges['SOBREPRIMA_MEDICO'].fillna(0)/100)+\
+                        np.where((df_ges['FECHA_EFECTO'].dt.to_period('M') + df_ges['MESES_SOBREPRIMA_DEPORTE'].fillna(0).astype(int)).dt.to_timestamp()<fecha_inicio_mes,0,df_ges['SOBREPRIMA_DEPORTE'].fillna(0)/100)+\
+                        df_ges['PORCENTAJE_RECARGO'].fillna(0)/100
     # CREACION DF_FINAL
     df_final=pd.concat([df_iaxis[cols_df_final],df_ges[cols_df_final]],axis=0)
     if calcula_recargos==1: df_final['PRIMA REASEGURO']=df_final['PRIMA REASEGURO SIN RECARGO']+df_final['RECARGO']
     return df_final
     
-    
-def licitado_desg_nl(df_5,ruta_salidas):
-    cobs_old = pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Cobs Reas Desg NL Licitacion')
-    prods_ges = pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Prod GES Licitacion')
-    ramo_reas_final = pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Ramo Reas Final Desg NL Licitac')
-    nombre_prods = pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Nombre Productos Licitacion')
-    ramo_reas_otros = pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Cobs Reas Otros Licitacion')
-    if contrato=='Desgravamen No Licitado':
-        df_5=df_5.merge(cobs_old,how='left',on=['CODIGO COBERTURA'])
-    elif contrato in ['Digital Klare','K-Fijo','AP + Urgencias Medicas','Multisocios']:
-        df_5=df_5.merge(ramo_reas_otros,how='left',on=['POL_PROD','CODIGO COBERTURA'])
-    df_5=df_5.merge(nombre_prods,how='left',on=['PRODUCTO','BASE'])
-    df_5=df_5.merge(prods_ges,how='left',on=['POLIZA','PRODUCTO'])
-    df_5['PRODUCTO GES']=np.where(df_5['PRODUCTO GES'].isnull(),df_5['PRODUCTO'],df_5['PRODUCTO GES'])
-    df_5['RAMO REAS CORREGIDO']=np.where(('DESG' not in df_5['NOMBRE PRODUCTO'])&(df_5['RAMO REAS']=='DESGRAVAMEN'),'VIDA',df_5['RAMO REAS'])
-    df_5=df_5.merge(ramo_reas_final,how='left',on=['TIPO_POLIZA_LETRA','RAMO REAS CORREGIDO'])
-    if contrato!='K-Fijo':campos=['RUT','SEXO','FEC_NAC','SSEGURO','POLIZA','CERTIFICADO','PRODUCTO','CODIGO COBERTURA IAXIS','PLAN','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','ICAPITAL','PRIMA NETA ANUAL','FORMA_PAGO_CODIGO','BASE','TIPO_POLIZA_LETRA','CODIGO COBERTURA','EDAD INGRESO','EXPOSICION MENSUAL','TIPO ASEGURADO','EDAD RENOVACION','MESES RENTA','MONTO ASEGURADO','CONTRATO REASEGURO','COBERTURA DEL CONTRATO','CAPITAL RETENIDO TOTAL','CAPITAL CEDIDO TOTAL','PORCENTAJE CEDIDO FINAL','RAMO REAS','RAMO REAS CORREGIDO','COB REAS','PRODUCTO GES','RAMO REAS FINAL','NOMBRE PRODUCTO','RECARGO']
-    else: campos=['RUT','SEXO','FEC_NAC','SSEGURO','POLIZA','CERTIFICADO','PRODUCTO','CODIGO COBERTURA IAXIS','PLAN','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','ICAPITAL','PRIMA NETA ANUAL','FORMA_PAGO_CODIGO','BASE','TIPO_POLIZA_LETRA','CODIGO COBERTURA','EDAD INGRESO','EXPOSICION MENSUAL','EDAD RENOVACION','MONTO ASEGURADO','CONTRATO REASEGURO','COBERTURA DEL CONTRATO','CAPITAL RETENIDO TOTAL','CAPITAL CEDIDO TOTAL','PORCENTAJE CEDIDO FINAL','RAMO REAS','RAMO REAS CORREGIDO','COB REAS','PRODUCTO GES','RAMO REAS FINAL','NOMBRE PRODUCTO','RECARGO']
-    df_5[campos].to_csv(ruta_salidas+'Detalle Licitacion '+contrato+'.txt',sep=';',decimal=',',date_format='%d-%m-%Y',index=False)
-    
-        
-    sum(df_5['RAMO REAS'].isnull())
-    sum(df_5['LOB'].isnull())
-    sum(df_5['PRODUCTO GES'].isnull())
-    sum(df_5['RAMO REAS FINAL'].isnull())
     
     
     
@@ -1003,3 +996,46 @@ def corrige_historicos_siniestros_vida():
         historico_pagados_corregido.to_csv(f'{ruta}Historico Siniestros Pagados Vida {periodo}.txt',sep=';',decimal='.',encoding='latin-1',date_format='%d-%m-%Y',index=False)
         print(f'{periodo} - {sum(historico_pagados_corregido["EDAD SINIESTRO"].isnull())} registros con edad siniestro nulo')
         periodo = periodo + (89 if periodo%100==12 else 1)
+        
+        
+def identificador_anonimo(df, campos):
+    # Crear un DataFrame con combinaciones únicas de los identificadores
+    identificadores_unicos = df[campos].drop_duplicates()
+    nro_ruts = len(identificadores_unicos)
+    # Generar números aleatorios para las combinaciones únicas
+    np.random.seed(1000)  # Fijar semilla para reproducibilidad
+    valores_aleatorios = np.random.choice(range(1000000, 9999999),size=nro_ruts,replace=False)
+    identificadores_unicos['IDENTIFICADOR'] = valores_aleatorios
+    # Hacer un merge para asignar los valores anonimizados al DataFrame original
+    if len(identificadores_unicos['IDENTIFICADOR'].drop_duplicates()) ==nro_ruts:
+        df = df.merge(identificadores_unicos, on=campos, how='left')
+    else:
+        print('Revisar los identificadores unicos. No fueron bien asignados')
+    return df
+    
+    
+def respaldar_proceso(nombre_archivo, ruta_salidas, elimina_origen=1):
+    # Comprimir archivos del grupo en un archivo zip
+    ruta_zip = os.path.join(ruta_salidas, f'{nombre_archivo}.zip')
+    with ZipFile(ruta_zip, 'w',ZIP_DEFLATED) as zipf:
+        archivo_origen = os.path.join(ruta_salidas, f'{nombre_archivo}.txt')
+        zipf.write(archivo_origen, f'{nombre_archivo}.txt')
+    # Verificar si se debe eliminar el origen
+    if elimina_origen == 1:
+        #Verifica si es un archivo y lo elimina
+        if os.path.isfile(archivo_origen):
+            os.remove(archivo_origen)
+        #Elimina directorio
+        else:
+            shutil.rmtree(archivo_origen)
+
+
+
+
+
+
+
+
+
+
+

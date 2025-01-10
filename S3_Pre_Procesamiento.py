@@ -38,8 +38,6 @@ planes_ges=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Planes G
 cumulos_individuales=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Individual')
 cumulos_contrato=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Contrato')
 cumulos_excedente=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Excedente')
-# cumulos_individuales_siniestros=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Individual Sinies')
-# cumulos_excedente_siniestros=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Excedente Sinies')
 # Tablas de Siniestros
 ocurrencias=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Ocurrencias')
 
@@ -86,10 +84,12 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
     # Corresponden a modificaciones iniciales a las bbdd antes de hacer el calculo generico
     """
     escribe_reporta(archivo_reporte,'COMIENZA LA LECTURA DE LAS BASES DE DATOS:\n{}'.format(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))))
+    print(f'Contrato {contrato}')
     if tipo_calculo=='Prima de Reaseguro':
         # Inputs de otras fuentes
         polizas_pyme=pd.read_csv(ruta_pyme+'1. Inputs Auxiliares\\Polizas Pyme\\'+'Polizas Pyme.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
         cti=pd.read_csv(ruta_otros+'1. Inputs Auxiliares\\Otros\\'+'CTI.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
+        innominadas=pd.read_csv(ruta_otros+'1. Inputs Auxiliares\\Otros\\'+'polizas_innominadas.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
         if contrato=='Complementario UC': uso_seguro_com_uc = pd.read_csv(f'{ruta_uso_seguro}1. Inputs Auxiliares\\Com UC\\COM UC Uso del Seguro Hist {periodo}.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
         if (tipo_contrato=='Vida')&(contrato not in ['K-Fijo','Desgravamen No Licitado','Multisocios']): cols_date,cols_date_ges=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FINI_RENOV_ANUAL','FFIN_RENOV_ANUAL','FECHA_ANULACION'],['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO']
         elif (tipo_contrato=='Vida')&(contrato in ['Desgravamen No Licitado','Multisocios']): cols_date,cols_date_ges=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FINI_RENOV_ANUAL','FFIN_RENOV_ANUAL','FECHA_ANULACION'],['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_INICIO_CRED','FECHA_FIN_CRED']
@@ -194,9 +194,11 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
         df_0_1['POL_PROD']=np.where((df_0_1['TIPO_POLIZA_LETRA']=='I')|(df_0_1['CTI']==1),df_0_1['PRODUCTO'],df_0_1['POLIZA'])
         df_0_1['FECHA CIERRE']=fecha_cierre
         df_0_1['FECHA CIERRE']=df_0_1['FECHA CIERRE'].astype(df_0_1['FECHA_EFECTO'].dtype)
+        df_0_1['INNOMINADA'] = np.where(df_0_1['POLIZA'].isin(list(innominadas['POLIZA'])),1,0)
+        df_0_1['EDAD'],df_0_1['ISSUE EDAD']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],fecha_cierre,edad_casos_perdidos,108,reporta_issues=1, edad_inf = 18, aplica_edad_prom_cartera = 1)
         if 'FEC_NAC' in df_0_1.columns: 
             escribe_reporta(archivo_reporte,'Calculando edad de ingreso')
-            df_0_1['EDAD INGRESO'],df_0_1['ISSUE EDAD INGR']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],df_0_1['FECHA_EFECTO'],edad_casos_perdidos,108,reporta_issues=1)
+            df_0_1['EDAD INGRESO'],df_0_1['ISSUE EDAD INGR']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],df_0_1['FECHA_EFECTO'],edad_casos_perdidos,108,reporta_issues=1, edad_inf = 18, aplica_edad_prom_cartera = 1)
         # CALCULOS ESPECIFICOS POR CADA CONTRATO
         # CALCULOS DE FECHAS DE INICIO/FIN DE EXPOSICION: SE DIFERENCIAN ENTRE PRIMA UNICA (CESANTIA Y K-FIJO) DEL RESTO
         if (clasificacion_contrato !='Cesantia PU')&(contrato!='K-Fijo'):
@@ -212,8 +214,8 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
             df_0_1['EXPOSICION MENSUAL']=calcula_exposicion(df_0_1,'FECHA_EFECTO','FECHA FIN EXP',dias_exposicion,fecha_inicio_mes,fecha_cierre)
             df_0_1['TIPO ASEGURADO']=np.where((df_0_1['RUT'].isnull())|(df_0_1['RUT']==df_0_1['RUT_CONTRATANTE']),'Titular','Adicional')
             escribe_reporta(archivo_reporte,'Calculando edad de renovacion')
-            if contrato == 'Desgravamen No Licitado': df_0_1['EDAD RENOVACION'],df_0_1['ISSUE EDAD RENOV']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],fecha_inicio_mes,edad_casos_perdidos,108,reporta_issues=1)
-            else: df_0_1['EDAD RENOVACION'],df_0_1['ISSUE EDAD RENOV']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],df_0_1['FINI_RENOV_ANUAL'],edad_casos_perdidos,108,reporta_issues=1)
+            if contrato == 'Desgravamen No Licitado': df_0_1['EDAD RENOVACION'],df_0_1['ISSUE EDAD RENOV']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],fecha_inicio_mes,edad_casos_perdidos,108,reporta_issues=1,edad_inf = 18, aplica_edad_prom_cartera = 1)
+            else: df_0_1['EDAD RENOVACION'],df_0_1['ISSUE EDAD RENOV']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],df_0_1['FINI_RENOV_ANUAL'],edad_casos_perdidos,108,reporta_issues=1, edad_inf = 18, aplica_edad_prom_cartera = 1)
             df_0_2=df_0_1.merge(meses_renta,how='left',on=['CODIGO COBERTURA'],suffixes=['','_x'])
             if contrato=='Desgravamen No Licitado': df_0_2['MONTO ASEGURADO']=np.where(df_0_2['MESES RENTA']==1,1,(1-(1+tdm_mensual)**(-df_0_2['MESES RENTA']))/tdm_mensual)*df_0_2['ICAPITAL']
             else: df_0_2['MONTO ASEGURADO']=df_0_2['ICAPITAL']
@@ -231,7 +233,13 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
                 df_0_4['SALDO INSOLUTO CALCULADO']=df_0_4['ICAPITAL']*(1-(1+df_0_4['TASA_CRED_FINAL'])**(-df_0_4['NCUOTAS FALTANTES']))/(1-(1+df_0_4['TASA_CRED_FINAL'])**(-df_0_4['NCUOTAS']))
                 df_0_4['MONTO ASEGURADO']=np.where(df_0_4['SALDO_INSOLUTO']>0,df_0_4['SALDO_INSOLUTO'],np.maximum(df_0_4['SALDO INSOLUTO CALCULADO'],0)) 
                 df_0_5=pd.concat([df_0_4,df_0_4_resto],axis=0)
-                df_final_0=df_0_5.copy()
+                df_0_5 = df_0_5.reset_index(drop=True)
+                df_331 = df_0_5[(df_0_5['PRODUCTO']==331)&(df_0_5['BASE']=='IAXIS')&(df_0_5['CODIGO COBERTURA']==12)].copy()
+                df_resto = df_0_5[~df_0_5.index.isin(df_331.index)].copy()
+                df_331['PRIMA NETA ANUAL'] = df_331.groupby('SSEGURO')['PRIMA NETA ANUAL'].transform('sum')
+                df_331 = df_331[df_331['CODIGO COBERTURA IAXIS']==1200].copy()
+                df_0_6 = pd.concat([df_resto,df_331]).reset_index(drop=True)
+                df_final_0=df_0_6.copy()
             else: df_final_0=df_0_3.copy()
             if contrato in ['Multisocios']:
                 df_0_3['FECHA_FIN_CRED']=np.where(df_0_3['BASE']=='GES',np.maximum(df_0_3['FECHA_VENCIMIENTO'],df_0_3['FECHA_FIN_CRED']),df_0_3['FECHA_VENCIMIENTO'])
@@ -246,10 +254,11 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
         elif (tipo_contrato=='Vida')&(contrato=='K-Fijo'): 
             df_0_1['EXPOSICION MENSUAL']=1
             escribe_reporta(archivo_reporte,'Calculando edad de renovacion')
-            df_0_1['EDAD RENOVACION'],df_0_1['ISSUE EDAD RENOV']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],fecha_inicio_mes,edad_casos_perdidos,108,reporta_issues=1)
+            df_0_1['EDAD RENOVACION'],df_0_1['ISSUE EDAD RENOV']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],fecha_inicio_mes,edad_casos_perdidos,108,reporta_issues=1, edad_inf = 18, aplica_edad_prom_cartera = 1)
             df_0_1['PLAZO MESES']=np.maximum(1,round((df_0_1['FECHA_VENCIMIENTO']-df_0_1['FECHA_EFECTO']).dt.days/(365.25/12),0))
             df_0_1['MONTO ASEGURADO']=df_0_1['ICAPITAL']
             df_0_2=df_0_1[df_0_1['FECHA_EFECTO']<=fecha_cierre]
+            # df_0_2[~df_0_2.index.isin(df_0_4.index)].to_csv('Revisar Eliminados K-Fijo.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
             df_final_0=df_0_2.copy()
         # EXPORTO EDADES CON ISSUES
         if 'ISSUE EDAD INGR' in df_final_0.columns:
@@ -259,7 +268,9 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
         escribe_reporta(archivo_reporte,'El dataframe input luego de ser pre-procesado posee una prima neta de {}'.format(np.nansum(df_final_0['PRIMA NETA ANUAL'])))
     # Trabajamos con el df_final_0 y hacemos todas las operaciones que debamos hacer en general
     df_final_1=df_final_0[df_final_0['EXPOSICION MENSUAL']>0].copy()
-    return df_final_1
+    df_final_2=df_final_1[(df_final_1['FECHA_VENCIMIENTO']>=fecha_cierre)|(df_final_1['FECHA_VENCIMIENTO'].isnull())]
+    df_final_3=df_final_2[(df_final_2['FECHA_ANULACION']>=fecha_cierre)|(df_final_2['FECHA_ANULACION'].isnull())]
+    return df_final_3
 
             
 
