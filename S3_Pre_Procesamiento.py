@@ -14,7 +14,7 @@ import sys
 from pandas.tseries.offsets import MonthEnd
 from S0_Inputs import archivo_querys, archivo_calculos, archivo_parametros, ruta_extensa
 from S1_Parametros_Calculo import fecha_inicio_mes, fecha_cierre, dias_exposicion, periodo, ruta_input, ruta_output, tdm_mensual, edad_casos_perdidos, archivo_input, archivo_input_ges, contrato, tipo_contrato, separador_input, decimal_input, separador_fechas_input, separador_output, decimal_output, campo_rut_duplicados, archivo_reporte, ruta_pyme, ruta_regiones, ruta_si, ruta_otros, base_iaxis, base_ges, clasificacion_contrato, base_input_siniestros_generales, tipo_calculo, ruta_uso_seguro
-from S2_Funciones import calcula_exposicion, calcula_edad, escribe_reporta, completa_campo_total, corrige_tasas_ges
+from S2_Funciones import calcula_exposicion, calcula_edad, escribe_reporta, completa_campo_total, corrige_tasas_ges, calculo_fechas_renovacion
 
 # Prueba de Ejecucion del codigo
 print(f'El script {__name__} se está ejecutando')
@@ -126,6 +126,7 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
             df_ges=df_ges.merge(forma_pago,how='left',on='FORMA_PAGO')
             df_ges['TIPO_POLIZA_LETRA']=df_ges['TIPO_POLIZA']
             df_ges['TIPO_POLIZA']=np.where(df_ges['TIPO_POLIZA_LETRA']=='C',2,1)
+            df_ges['FINI_RENOV_ANUAL'],df_ges['FFIN_RENOV_ANUAL']=calculo_fechas_renovacion(df_ges, 'FECHA_EFECTO', 'FECHA_VENCIMIENTO', 'FECHA_ANULACION','FORMA_PAGO_CODIGO', periodo)
             df_ges['BASE']='GES'
             ########## REVISAR QUE PASA CON I&S
             if tipo_contrato=='Vida':df_ges['IPRIANU']=df_ges['IPRIANU']*df_ges['FACTOR ANUALIZACION']
@@ -166,6 +167,7 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
         # CALCULOS ESPECIFICOS POR CADA CONTRATO
         # CALCULOS DE FECHAS DE INICIO/FIN DE EXPOSICION: SE DIFERENCIAN ENTRE PRIMA UNICA (CESANTIA Y K-FIJO) DEL RESTO
         if (clasificacion_contrato !='Cesantia PU')&(contrato!='K-Fijo'):
+            df_0_1['FINI_RENOV_ANUAL'],df_0_1['FFIN_RENOV_ANUAL']=calculo_fechas_renovacion(df_0_1, 'FECHA_EFECTO', 'FECHA_VENCIMIENTO', 'FECHA_ANULACION','FORMA_PAGO_CODIGO', periodo,0)
             df_0_1['FECHA FIN EXP']=np.where(~df_0_1['FECHA_ANULACION'].isnull(),df_0_1['FECHA_ANULACION'],np.where(df_0_1['FECHA_VENCIMIENTO'].isnull(),df_0_1['FFIN_RENOV_ANUAL'],df_0_1['FECHA_VENCIMIENTO']))
         else:
             df_0_1['FEC AUX NA']=0

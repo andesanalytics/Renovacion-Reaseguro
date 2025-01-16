@@ -37,13 +37,13 @@ def ejecuta_contratos(ruta_salidas):
             import S1_Parametros_Calculo, S2_Funciones
             reload(S1_Parametros_Calculo)
             reload(S2_Funciones)
-            import S3_Pre_Procesamiento, S4_Calculos_Licitacion
+            import S3_Pre_Procesamiento, S4_Calculos_Renovacion
         else:
             reload(S1_Parametros_Calculo)
             reload(S2_Funciones)
             reload(S3_Pre_Procesamiento)
-            reload(S4_Calculos_Licitacion)
-        S4_Calculos_Licitacion.calculos_licitacion(ruta_salidas)
+            reload(S4_Calculos_Renovacion)
+        S4_Calculos_Renovacion.calculos_licitacion(ruta_salidas)
         count = count + 1
     df_catxl_uso_interno = pd.DataFrame()
     df_catxl_reaseguradores= pd.DataFrame()

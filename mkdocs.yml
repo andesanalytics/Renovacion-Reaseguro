@@ -1,1 +1,36 @@
-site_name: My Docs
+site_name: Documentacion
+site_url: http://Documentacion_Renovacion:Reaseguro.com
+theme:
+  name: material
+  palette:
+    # Dark Mode
+    - scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Dark mode
+      primary: green
+      accent: deep purple
+
+    # Light Mode
+    - scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Light mode
+      primary: blue
+      accent: deep orange
+
+
+nav:
+  - Funciones: S2_Funciones.md
+  - Calculos: S4_Calculos_Renovacion.md
+
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            docstring_style: numpy
+

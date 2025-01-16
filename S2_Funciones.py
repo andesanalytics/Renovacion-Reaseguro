@@ -555,7 +555,28 @@ def respaldar_proceso(nombre_archivo, ruta_salidas, elimina_origen=1):
             shutil.rmtree(archivo_origen)
 
 
-
+def calculo_fechas_renovacion(df,campo_inicio,campo_fin,campo_anulacion,campo_periodicidad,periodo_cierre,ajuste_pu=1):
+    df_aux=df.copy()
+    cierre_month=periodo_cierre%100
+    cierre_year=int(periodo_cierre/100)
+    # fecha_cierre=datetime.datetime(int(periodo_cierre/100),periodo_cierre%100,calendar.monthrange(int(periodo_cierre/100), periodo_cierre%100)[1])
+    # Defino los campos de dia mes y año para la fecha de la ultima renovacion
+    df_aux['year']=cierre_year-np.where((df_aux[campo_inicio].dt.month>cierre_month)|((df_aux[campo_anulacion].dt.month*100+df_aux[campo_anulacion].dt.day<df_aux[campo_inicio].dt.month*100+df_aux[campo_inicio].dt.day)&(~df_aux[campo_anulacion].isnull())),1,0)
+    df_aux['month']=df_aux[campo_inicio].dt.month
+    df_aux['day']=np.where((df_aux[campo_inicio].dt.day==29)&(df_aux['month']==2)&(df_aux['year']%4>0),28,df_aux[campo_inicio].dt.day)
+    df_aux['INICIO RENOVACION']=np.maximum(pd.to_datetime(df_aux[['year','month','day']]),df_aux[campo_inicio])
+    # Defino los campos de dia mes y año para la fecha de la proxima renovacion
+    df_aux['year']=df_aux['INICIO RENOVACION'].dt.year+1
+    df_aux['day']=np.where((df_aux[campo_inicio].dt.day==29)&(df_aux['month']==2)&(df_aux['year']%4>0),28,df_aux[campo_inicio].dt.day)
+    df_aux['FIN RENOVACION']=np.where(df_aux[campo_fin].isnull(),pd.to_datetime(df_aux[['year','month','day']]),np.minimum(pd.to_datetime(df_aux[['year','month','day']]),df_aux[campo_fin]))
+    # Ajusto en caso de primas unicas
+    if ajuste_pu==1: 
+        series_inicio=np.where(df_aux[campo_periodicidad]==0,df_aux[campo_inicio],df_aux['INICIO RENOVACION'])
+        series_fin=np.where(df_aux[campo_periodicidad]==0,df_aux[campo_fin],df_aux['FIN RENOVACION'])
+    else:
+        series_inicio=df_aux['INICIO RENOVACION']
+        series_fin=df_aux['FIN RENOVACION']
+    return series_inicio,series_fin
 
 
 

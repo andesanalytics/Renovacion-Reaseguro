@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
+"""Modulo para calcular la renovación de reaseguro para un contrato específico.
 """
-CALCULO DE BASES PARA LA RENOVACION DE REASEGURO VIDA
-"""
+
 
 # Ignorar warnings asociados a la lista desplegable del excel de parametros
 import warnings
@@ -9,6 +9,7 @@ warnings.simplefilter(action='ignore', category=UserWarning)
 # Importamos librerias que vamos a utilizar
 import pandas as pd
 import numpy as np
+from pathlib import Path
 # Importamos parametros necesarios de scripts previos del modelo
 from S1_Parametros_Calculo import archivo_parametros, tipo_calculo, contrato, ruta_otros
 # Importamos las funciones que requerimos del script de funciones
@@ -17,14 +18,15 @@ from S2_Funciones import asignacion_contratos, asignacion_vigencias, cumulos, re
 from S3_Pre_Procesamiento import pre_procesamiento
 
 
-def calculos_Renovacion(ruta_salidas) -> None:
+def calculos_renovacion(ruta_salidas: str) -> None:
     """Realiza los calculos de asociados a la renovacion de reaseguro para un contrato en específico.
 
     Parameters
     ----------
-    ruta_salidas : string
-        contiene la ruta donde se guardarán los resultados principales de los calculos
+    ruta_salidas : str
+        Contiene la ruta donde se guardarán los resultados principales de los calculos
     """
+    
     # * Traemos tablas de parametrizaciones que vamos a usar
     
     # Data que contiene matriz de asignacion de contratos de reaseguro por distintas variables (poliza, producto, cobertura, entre otras variables)
@@ -103,4 +105,6 @@ def calculos_Renovacion(ruta_salidas) -> None:
     # respaldar_proceso(nombre_archivo, ruta_salidas, elimina_origen=1)
     
 if __name__=='__main__':
-    calculos_Renovacion('2 Output\\Resultados Debug 2025-01-15\\')
+    ruta_salidas='2 Output\\Resultados 2024-12-20\\'
+    Path(ruta_salidas).mkdir(parents=True, exist_ok=True)
+    calculos_Renovacion(ruta_salidas)
