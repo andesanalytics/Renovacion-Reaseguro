@@ -1,12 +1,11 @@
 """
-PARAMETROS DE CALCULO
+Script que carga todos los parametros del archivo de parametros de calculo para que sean recogidos en los procesos posteriores
 """
 
 
 # Importamos librerias que vamos a utilizar
 import datetime
 import openpyxl
-import calendar
 import pandas as pd
 import shutil
 from pathlib import Path
@@ -16,7 +15,7 @@ from S0_Inputs import archivo_calculos, archivo_parametros, ruta_extensa
 # Prueba de Ejecucion del codigo
 print(f'El script {__name__} se está ejecutando')
 
-# Importacion de parametros a tarves del archivo de excel de calculos
+# * Importacion de parametros a tarves del archivo de excel de calculos
 wb = openpyxl.load_workbook(ruta_extensa+archivo_calculos)
 tipo_calculo=wb[next(wb.defined_names['tipo_calculo'].destinations)[0]][next(wb.defined_names['tipo_calculo'].destinations)[1]].value
 contrato=wb[next(wb.defined_names['contrato'].destinations)[0]][next(wb.defined_names['contrato'].destinations)[1]].value
@@ -54,7 +53,8 @@ wb.close()
 # Otras importaciones
 diccionario_contratos=pd.read_excel(io=ruta_extensa+archivo_calculos, sheet_name='Diccionario Contratos').set_index('CONTRATO').to_dict()
 
-# Calculos sobre el diccionario de contratos
+# * Calculos sobre las variables ya extraidas del excel
+# Calculos sobre la variable diccionario_contratos
 tipo_contrato=diccionario_contratos['TIPO CONTRATO'][contrato]
 tipo_prima=diccionario_contratos['TIPO PRIMA'][contrato]
 clasificacion_contrato=diccionario_contratos['CLASIFICACION CONTRATO'][contrato]
@@ -64,7 +64,6 @@ cap_expuestos=diccionario_contratos['CAPS EXPUESTOS'][contrato]
 pivotea_df=diccionario_contratos['PIVOTEA CONTRATO'][contrato]
 nombre_base=diccionario_contratos['NOMBRE BASE'][contrato]
 
-
 # Calculos de fechas para el cierre
 fecha_inicio_mes=datetime.datetime(fecha_cierre.year,fecha_cierre.month,1)
 fecha_cierre_mes_anterior=fecha_inicio_mes-datetime.timedelta(days=1)
@@ -72,10 +71,9 @@ dias_exposicion=(fecha_cierre-fecha_inicio_mes).days+1
 # Varios periodos, ya que Desg NL tiene 2 meses de desfase, mientras que Multisocios 1
 periodo=fecha_cierre.year*100+fecha_cierre.month
 periodo_anterior=periodo - (1 if periodo%100>1 else 89)
-
 año_cierre=fecha_cierre.year
 
-# Rutas de Salida
+# Calculo sobre las rutas de entrada y de salida
 ruta_input=ruta_extensa+'1 Input\\'+tipo_calculo+'\\'+subcarpeta_input+'\\'+nombre_base+'\\'
 ruta_historico_input=ruta_extensa+'1 Input\\'+tipo_calculo+'\\'+subcarpeta_historico+'\\'
 ruta_pyme=ruta_extensa+'1 Input\\'+tipo_calculo+'\\'+subcarpeta_pyme+'\\'
@@ -89,13 +87,13 @@ ruta_uso_seguro = ruta_extensa+'1 Input\\'+tipo_calculo+'\\'+subcarpeta_uso_segu
 ruta_output=ruta_extensa+'2 Output\\'+tipo_calculo+'\\'+str(periodo)+'\\'+contrato+'\\'+subcarpeta_output+'\\'
 ruta_historico_output=ruta_output+'Duplicados Cruce Historico'
 
-
 # Tasa de descuento para calculo de monto asegurado para coberturas de rentas
 tdm_mensual=(1+tasa_dscto_mensualidades)**(1/12)-1
 # Campo de rut para revisar duplicados
 campo_rut_duplicados='RUT_CONTRATANTE' if (tipo_contrato=='Generales')&('Incendio y Sismo' in contrato) else 'RUT'
+# Campo del tipo de base que sirve para ir a buscar los archivos de expuestos
 nombre_tipo_base = 'Expuestos ' if tipo_calculo=='Prima de Reaseguro' else 'Siniestros '
-# Calculo de nombres de archivos
+# Calculo de ruta y nombres de archivos de expuestos que iremos a buscar
 if tipo_base_expuestos=='Mensual':
     archivo_input=nombre_tipo_base+nombre_base+' '+str(periodo)+'.txt'
     archivo_input_ges=nombre_tipo_base+nombre_base+' GES '+str(periodo)+'.txt'
@@ -111,8 +109,6 @@ elif tipo_base_expuestos=='Fecha':
 elif tipo_base_expuestos=='Periodos':
     archivo_input=nombre_tipo_base+nombre_base+' '+add_base_expuestos+'.txt'
     archivo_input_ges=nombre_tipo_base+nombre_base+' GES '+add_base_expuestos+'.txt'
-
-archivo_compara=tipo_calculo + ' '+contrato + ' ' + str(periodo) + '.txt'
 
 # Crea las rutas de salidas
 rutas=[ruta_input, ruta_historico_input, ruta_pyme, ruta_recargos, ruta_regiones, ruta_reservas, ruta_si, ruta_otros, ruta_output]

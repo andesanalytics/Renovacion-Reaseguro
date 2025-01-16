@@ -1,5 +1,5 @@
 """
-FUNCIONES DE REASEGURO
+Este script contiene todas las funciones externas que ayudan ya sea a preprocesar la data o a calcular el reaseguro
 """
     
 
@@ -8,35 +8,30 @@ import pandas as pd
 import numpy as np
 import time
 import datetime
-import calendar
-import math 
-import cx_Oracle
 from pathlib import Path
 import os
 from zipfile import ZipFile, ZIP_DEFLATED
 import shutil
-import sys
+from typing import Any, Set, List
 from itertools import chain, combinations
 from pandas.tseries.offsets import MonthEnd
 from dateutil.relativedelta import relativedelta
 from S0_Inputs import archivo_querys, archivo_calculos, archivo_parametros, ruta_extensa
-from S1_Parametros_Calculo import fecha_cierre, tipo_contrato, tipo_calculo, contrato, ruta_input, ruta_output, periodo, fecha_inicio_mes, dias_exposicion, archivo_compara, separador_input, decimal_input, separador_output, decimal_output, periodo_historico, ruta_historico_output, fecha_cierre_mes_anterior, archivo_reporte, archivo_input, archivo_input_ges, campo_rut_duplicados, tipo_prima, uso_fecha_anulacion_historico, tipo_proceso, ruta_historico_input, ruta_pyme, ruta_recargos, ruta_regiones, ruta_reservas, ruta_si, clasificacion_contrato, periodo_anterior, subcarpeta_compara, separador_compara, decimal_compara, pivotea_df, edad_casos_perdidos, ruta_lob
+from S1_Parametros_Calculo import fecha_cierre, tipo_contrato, tipo_calculo, contrato, ruta_input, ruta_output, periodo, fecha_inicio_mes, dias_exposicion, separador_input, decimal_input, separador_output, decimal_output, periodo_historico, ruta_historico_output, fecha_cierre_mes_anterior, archivo_reporte, archivo_input, archivo_input_ges, campo_rut_duplicados, tipo_prima, uso_fecha_anulacion_historico, tipo_proceso, ruta_historico_input, ruta_pyme, ruta_recargos, ruta_regiones, ruta_reservas, ruta_si, clasificacion_contrato, periodo_anterior, subcarpeta_compara, separador_compara, decimal_compara, pivotea_df, edad_casos_perdidos, ruta_lob
 
 # Prueba de Ejecucion del codigo
 print(f'El script {__name__} se está ejecutando')
 
-
-# Importamos tablas de parametrizaciones
+# * LECTURA DE VARIABLES QUE UTILIZAREMOS EN ALGUNAS DE LAS FUNCIONES
+# * Importamos tablas de parametrizaciones del archivo de parametros de reaseguro
+# Contiene los cumulos individuales por contrato de reaseguro y cobertura
 cumulos_individuales=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Individual')
+# Contiene cumulos que tenga el cotnrato a nivel general (ejemplo: I&S tiene cumulos por zonas)
 cumulos_contrato=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Contrato')
+# Contiene los limites de retencion de excedente
 cumulos_excedente=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Excedente')
-contrato_cob = pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Matriz Contrato-Cobertura')
-parametros_contratos = pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Matriz Vigencias')
-cesion_reaseguradores = pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Matriz Reaseguradores')
+# Contiene las polizas que debo asignar por ocurrencia al reaseguro
 ocurrencias=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Ocurrencias')
-nombre_prods=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Nombre Productos Licitacion')
-cobs_ges=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Coberturas GES')
-
 
 
 """ Diccionario para campos de cumulos
@@ -49,12 +44,10 @@ Entregamos variables claves relacionadas con el tipo de cumulo que hacemos:
 5:= Nombre del campo resultante de montos asegurados despues de aplicar el limite o retencion
 6:= Nombre del campo de cumulo de pagados (solo aplica para siniestros)
 """
-diccionario_cumulos={\
+diccionario_cumulos ={\
 'RIESGO LIMITE INDIVIDUAL':['CUMULO LIMITE INDIVIDUAL','PORCENTAJE LIMITE INDIVIDUAL','LIMITE INDIVIDUAL',cumulos_individuales,'MONTO ASEGURADO','CAPITAL POST LIMITE INDIVIDUAL','CUMULO PAGADOS LIMITE INDIVIDUAL'],\
 'RIESGO LIMITE CONTRATO':['CUMULO LIMITE CONTRATO','PORCENTAJE LIMITE CONTRATO','LIMITE CONTRATO',cumulos_contrato,'CAPITAL POST LIMITE INDIVIDUAL','CAPITAL POST LIMITE CONTRATO','CUMULO PAGADOS LIMITE CONTRATO'],\
 'RIESGO RETENCION EXCEDENTE':['CUMULO RETENCION EXCEDENTE','PORCENTAJE RETENCION EXCEDENTE','RETENCION EXCEDENTE',cumulos_excedente,'CAPITAL POST LIMITE CONTRATO','CAPITAL RETENIDO POST EXCEDENTE','CUMULO PAGADOS RETENCION EXCEDENTE'],\
-# 'RIESGO LIMITE INDIVIDUAL SINIESTROS':['CUMULO LIMITE INDIVIDUAL','PORCENTAJE LIMITE INDIVIDUAL','LIMITE INDIVIDUAL',cumulos_individuales_siniestros,'MONTO SINIESTRO UF','MONTO SINIESTRO RETENIDO POST LIM INDIVIDUAL','CUMULO PAGADOS LIMITE INDIVIDUAL'],\
-# 'RIESGO RETENCION EXCEDENTE SINIESTROS':['CUMULO RETENCION EXCEDENTE','PORCENTAJE RETENCION EXCEDENTE','RETENCION EXCEDENTE',cumulos_excedente_siniestros,'MONTO SINIESTRO RETENIDO POST LIM INDIVIDUAL','MONTO SINIESTRO RETENIDO POST EXCEDENTE','CUMULO PAGADOS RETENCION EXCEDENTE']
 }
 
 # Diccionario de Tramos de Edades
@@ -65,19 +58,30 @@ diccionario_tramos_capital={'K-Fijo':[0,120,250,400,1000,9999999]}
 diccionario_tramos_plazo={'K-Fijo':[0,25,49,61,73,97,1000]}
 
 
-def escribe_reporta(reporte,texto):
+# * FUNCIONES
+def escribe_reporta(reporte,texto: str) -> None:
+    """Escribe en un archivo txt, que ya debe venir abierto previamente el texto que le indiquemos
+
+    Parameters
+    ----------
+    reporte : archivo txt
+        es el archivo donde escribiremos la informacion a reportar
+    texto : string
+        contiene el texto a escribir
+    """
     reporte.write(texto)
     reporte.write('\n')
+    # Igualmente mostramos en pantalla lo que escribiremos en el reporte
     print(texto)
 
 
-def get_all_subsets(s):
+def get_all_subsets(s: set[Any]) -> list[set[Any]]:
     """
-    Generate all subsets of a set 's'.
+    Genera todos los subconjuntos de un conjunto 's'.
         Parameters:
-        s (set): The input set for which subsets need to be generated.
+        s (set): El conjunto de entrada para el cual se deben generar los subconjuntos.
          Returns:
-        list: A list of sets representing all subsets of 's'.
+        list: Una lista de conjuntos que representa todos los subconjuntos de 's'.
     """
     # Convert the input set into a list to ensure order of elements in subsets.
     s_list = list(s)
@@ -88,29 +92,54 @@ def get_all_subsets(s):
     return all_subsets
 
 
-def filtra_una_combinacion(df,lista_campos,tabla_parametros,combinacion,cols_cruce):
-    """ Funcion que filtra un dataframe de acuerdo a las caracteristicas de 1 tipo_calculo de reaseguro especificado
-        Ademas, tiene la funcion de poder hacer un merge_asof cuando el tipo_calculo asignado para un producto cambia en el tiempo"""
-    df_filtrado=df.copy()
+def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parametros: pd.DataFrame,combinacion: list[str],cols_cruce: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Funcion que filtra un dataframe de acuerdo a las caracteristicas de 1 tipo_calculo de reaseguro especificado
+        Ademas, tiene la funcion de poder hacer un merge_asof cuando el tipo_calculo asignado para un producto cambia en el tiempo
+    Parameters
+    ----------
+        df : pd.DataFrame
+        DataFrame
+        El DataFrame que contiene los datos a filtrar.
+        lista_campos : list[str]
+        Lista de nombres de columnas en el DataFrame que se utilizarán para el filtrado.
+        tabla_parametros : DataFrame
+        DataFrame que contiene los parámetros de filtrado.
+        combinacion : list[str]
+        Lista de nombres de columnas que representan una combinación específica de valores para el filtrado.
+        cols_cruce : list[str]
+        Lista de nombres de columnas que se utilizarán para realizar el cruce entre el DataFrame y la tabla de parámetros.
+
+        Returns
+        -------
+        tuple[DataFrame, DataFrame, DataFrame]
+        Una tupla que contiene tres DataFrames:
+        - El DataFrame filtrado que coincide con la combinación específica.
+        - El DataFrame restante después de eliminar las filas filtradas.
+        - La tabla de parámetros original.
+        """
+    # * Calculos iniciales
+    # df_filtrado que será el que se irá cruzando con la tabla de las asignaciones
+    df_filtrado: pd.DataFrame=df.copy()
+    # Se guarda el indice para no perder el orden de los registros
     df_filtrado['INDICE']=df_filtrado.index
-    tabla_parametros_filtrada=tabla_parametros.copy()
+    # Tabla auxiliar que tendrá filtrado lo que vamos a cruzar
+    tabla_parametros_filtrada: pd.DataFrame=tabla_parametros.copy()
+    # Combinacion de campos que vamos a utilizar para cruzar
     combinacion=list(combinacion)
+    # Campos que no vamos a cruzar
     combi_out=list(set(lista_campos).difference(combinacion))
+    
     tabla_parametros_filtrada.dropna(subset=combinacion,inplace=True)
-    tabla_parametros_quitar=tabla_parametros_filtrada.dropna(subset=combi_out,how='all')
+    tabla_parametros_quitar: pd.DataFrame=tabla_parametros_filtrada.dropna(subset=combi_out,how='all')
     tabla_parametros_filtrada=tabla_parametros_filtrada.loc[tabla_parametros_filtrada.index.difference(tabla_parametros_quitar.index)].reset_index(drop=True)
-    # for col in combi_out:
-    #     tabla_parametros_filtrada=tabla_parametros_filtrada[tabla_parametros_filtrada[col].isnull()]
     if tabla_parametros_filtrada.empty: return pd.DataFrame(),df,tabla_parametros
     else:
-        tpf_sin_inicio=tabla_parametros_filtrada[tabla_parametros_filtrada['INICIO DEL CONTRATO'].isnull()].copy()
-        tpf_con_inicio=tabla_parametros_filtrada[~tabla_parametros_filtrada['INICIO DEL CONTRATO'].isnull()].copy()
+        tpf_sin_inicio: pd.DataFrame=tabla_parametros_filtrada[tabla_parametros_filtrada['INICIO DEL CONTRATO'].isnull()].copy()
+        tpf_con_inicio: pd.DataFrame=tabla_parametros_filtrada[~tabla_parametros_filtrada['INICIO DEL CONTRATO'].isnull()].copy()
         # Pregunta si necesitamos hacer un merge o merge_asof, en caso de tener cambio de contratos en el tiempo
         if not tpf_sin_inicio.empty: df_filtrado_sin_inicio=df_filtrado.merge(tpf_sin_inicio[combinacion+cols_cruce],how='inner',on=combinacion)
         else: df_filtrado_sin_inicio=pd.DataFrame()
         if not tpf_con_inicio.empty:
-            #################### ESTA PARTE DEBEMOS "DESGRANAR" CUALES SON LOS CAMPOS CON INICIO DE CONTRATO NO NULO Y CRUZARLOS CON EL MERGE.ASOF
-            ######### debemos quitar duplicados de los campos de la combinacion e ir iterando por cada uno de ellos haciendo merge asof por separado
             tpf_con_inicio_unicos=tpf_con_inicio[combinacion].drop_duplicates()
             df_filtrado_con_inicio=pd.DataFrame()
             # Recorre el dataframe para cada registro de filtro que deba hacer, para ir concatenandolos en el df que necesitamos
@@ -134,7 +163,8 @@ def filtra_una_combinacion(df,lista_campos,tabla_parametros,combinacion,cols_cru
         return df_filtrado,df_a_filtrar,tabla_parametros_a_filtrar
 
 
-def asignacion_contratos(df,tabla_parametros,mantiene_na=0):
+def asignacion_contratos(df: pd.DataFrame,tabla_parametros: pd.DataFrame,mantiene_na: int = 0) -> pd.DataFrame:
+    
     """ Asignacion de todos los contratos de reaseguro, de acuerdo al tipo_calculo seleccionado
         Utiliza la funcion anterior tantas veces como sea necesario hasta filtrar todo lo que el tipo_calculo tiene"""
     # Definiciones preliminares del proceso
@@ -166,13 +196,29 @@ def asignacion_contratos(df,tabla_parametros,mantiene_na=0):
     if mantiene_na==1: return pd.concat([df_final,df],axis=0)
     else: return df_final
 
-# df,tabla_parametros,tipo_calculo = df_1,parametros_contratos,tipo_calculo
-# sum(tabla_parametros['COBERTURA DE']==331)
 
-def asignacion_vigencias(df,tabla_parametros,tipo_calculo,mantiene_na=0):
+def asignacion_vigencias(df: pd.DataFrame, tabla_parametros: pd.DataFrame, tipo_calculo: str,mantiene_na: int = 0) -> tuple[pd.DataFrame, pd.DataFrame]:
     """ Para siniestros, asigna a la vigencia a la cual pertenece 
         La asignacion puede ser por tipo_calculo, o por tipo_calculo y cobertura, dandole mayor flexibilidad a la forma de cruzar data
-        Lo que tambien lo hace mas eficiente"""
+        Lo que tambien lo hace mas eficiente
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        _description_
+    tabla_parametros : pd.DataFrame
+        _description_
+    tipo_calculo : str
+        _description_
+    mantiene_na : int, optional
+        _description_, by default 0
+
+    Returns
+    -------
+    tuple[pd.DataFrame, pd.DataFrame]
+        _description_
+    """
+
     escribe_reporta(archivo_reporte,'COMIENZA LA ASIGNACION DE VIGENCIAS DE LOS CONTRATOS DE REASEGURO:\n{}'.format(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))))
     cols_iniciales=list(df.columns)
     df_nuls=df[df['CONTRATO REASEGURO'].isnull()].copy()
@@ -209,12 +255,11 @@ def asignacion_vigencias(df,tabla_parametros,tipo_calculo,mantiene_na=0):
     reg_elim_post=sum(df_final_01['FECHA CRUCE VIGENCIAS']>df_final_01['FECHA FIN CONTRATO'])
     if reg_elim_ant>0:escribe_reporta(archivo_reporte,f'Se eliminaron {reg_elim_ant} registros cuya fecha es anterior al primer {tipo_calculo} de reaseguro establecido')
     if reg_elim_post>0:escribe_reporta(archivo_reporte,f'Se eliminaron {reg_elim_post} registros cuya fecha es posterior al ultimo {tipo_calculo} de reaseguro establecido')
-    # return df_final_02,df_deleted
     if mantiene_na==1: return pd.concat([df_final_02,df_deleted.drop(['CONTRATO REASEGURO','COBERTURA DEL CONTRATO','INICIO DEL CONTRATO']+cols_extra,axis=1),df_nuls],axis=0),df_deleted
     else: return df_final_02,df_deleted
 
 
-def cumulo_riesgo(df,contrato_reaseguro,riesgo_cumulo,lista_campos,limite_retencion,tipo_cumulo,columna_capital):
+def cumulo_riesgo(df: pd.DataFrame,contrato_reaseguro: str,riesgo_cumulo: str,lista_campos: list[str],limite_retencion:Any,tipo_cumulo: str,columna_capital: str) -> pd.DataFrame:
     """ Funcion de calculo de cumulo para un tipo_calculo y riesgo particular """
     # Filtro el df por el tipo_calculo y el riesgo de cumulo correspondiente
     df_filter=df[(df['CONTRATO REASEGURO']==contrato_reaseguro) & (df[tipo_cumulo]==riesgo_cumulo)]
@@ -268,7 +313,7 @@ def cumulo_riesgo(df,contrato_reaseguro,riesgo_cumulo,lista_campos,limite_retenc
     return df_final
 
 
-def cumulos(df,campo_cumulo):
+def cumulos(df: pd.DataFrame,campo_cumulo: str) -> pd.DataFrame:
     """ 
     Funcion de calculo de cumulo para todos los riesgos y contratos dentro del df
     En campo_cumulo tenemos las siguientes alternativas (ver diccionario de cumulos)
@@ -306,292 +351,6 @@ def cumulos(df,campo_cumulo):
     return df_inicial
 
 
-def busca_tasas(df,nombre_tabla):
-    """
-    Funcion que dado un df y el nombre de una tabla, hace el cruce entre el df y la tabla, por los campos que contenga la tabla
-    # Para esto, los campos que estén dentro de la tabla tambien deben estar, con el mismo nombre, en el df
-    """
-    # Busca la tabla de tasas/primas de reaseguro
-    try:
-        tabla=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name=nombre_tabla)    
-    except:
-        escribe_reporta(archivo_reporte,'la tabla {} de tasas/primas de reaseguro no existe'.format(nombre_tabla))
-    # Extrae los campos que posee, quitando el nombre del campo que contiene la tasa/prima de reaseguro
-    campos=list(tabla.columns)
-    campos.remove('TASA O PRIMA DE REASEGURO')
-    # Filtra el df por solo aquellos que debe aplicar aquella tabla de tasas/primas
-    df_filtrado=df[df['TABLA']==nombre_tabla].copy()
-    if df_filtrado.empty:
-        escribe_reporta(archivo_reporte,'No hay registros con la tabla {} dentro del dataframe'.format(nombre_tabla))
-    # Cruza el df filtrado vs la tabla encontrada, por todos los campos que la tabla posea
-    if sum([1 if x not in df.columns else 0 for x in campos])==0:
-        df_final=df_filtrado.merge(tabla,how='inner', left_on=campos, right_on=campos,suffixes=['','_x'])    
-    else:
-        for campo in campos:
-            if campo not in df.columns:
-                escribe_reporta(archivo_reporte,'El campo {} no se encuentra dentro del dataframe, por lo que no se puede cruzar la tabla {}'.format(campo,nombre_tabla))
-    return df_final
-
-
-def calculo_tasas_reaseguro(df):
-    """ 
-    Funcion para encontrar la tasa o prima de reaseguro asociada a cada registro dentro del df
-    Para ello aplica la funcion "busca_tasas" para todos los valores de tablas que encuentre dentro del df
-    """
-    escribe_reporta(archivo_reporte,'COMIENZA LA ASIGNACION DE TASAS DE REASEGURO:\n{}'.format(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))))
-    # Extrae todos los nombres de tablas de tasas/primas dentro del df
-    lista=[x for x in list(df['TABLA'].unique()) if str(x)!='nan']
-    # Genera primero el df de aquellos registros donde el nombre de la tabla no sea necesario, estos son los casos donde la tasa/prima sea solo una tasa anual x 1000
-    df_inicial=df[df['TABLA'].isnull()].copy()
-    df_inicial['TASA O PRIMA DE REASEGURO']=df_inicial['TASA']
-    for name in lista:
-        # Para cada nombre de tabla encontrada, aplica la funcion busca_tasas
-        df_tabla=busca_tasas(df,name)
-        # Luego concatena con el df_inicial creado anteriormente
-        df_inicial=pd.concat([df_inicial,df_tabla],axis=0)
-    return df_inicial
-
-
-def calcula_tramos(df,diccionario,campo_cruce,campo_tramo,aux=1):
-    if campo_cruce not in df.columns: return df
-    lista_tramos=list(diccionario)
-    df['APLICA TRAMOS '+campo_tramo]=np.where(df['CONTRATO REASEGURO'].isin(lista_tramos),1,0)
-    df_inicial=df[df['APLICA TRAMOS '+campo_tramo]==0].copy()
-    if not df_inicial.empty: df_inicial['TRAMO '+campo_tramo]='NA'
-    for contrato_reaseguro in lista_tramos:
-        df_filtrado=df[df['CONTRATO REASEGURO']==contrato_reaseguro].copy()
-        bins=diccionario[contrato_reaseguro]
-        labels=[str(bins[i])+'-'+str(bins[i+1]-aux) for i in range(len(bins)-1)]
-        df_filtrado['TRAMO '+campo_tramo] = pd.cut(df_filtrado[campo_cruce], bins=bins, labels=labels, right=False)
-        df_inicial=pd.concat([df_inicial,df_filtrado],axis=0) if not df_inicial.empty else df_filtrado
-    df.drop('APLICA TRAMOS '+campo_tramo,axis=1,inplace=True)
-    return df_inicial
-
-
-def cruce_dfs(df_cierre,df_hist,campo_cruce,desc_llave='',campos_extra=''):
-    # CALCULOS PREVIOS
-    if desc_llave=='': llave=campo_cruce
-    else: llave=campo_cruce+' - '+desc_llave
-    if campos_extra=='':campos_cruzar_hist=[campo_cruce,'FECHA_ANULACION','CRUCE_HIST','SSEGURO']
-    else: campos_cruzar_hist=[campo_cruce,'FECHA_ANULACION','CRUCE_HIST','SSEGURO']+campos_extra
-    condicion=all(x in list(df_hist.columns) for x in campos_extra)
-    # CREO COPIA DE LOS DF
-    print('Corriendo cruce de df vs historico bdx para el campo {}'.format(llave))
-    df_cierre_aux=df_cierre.copy()
-    df_hist_aux=df_hist.copy()
-    df_cierre_aux['CRUCE_HIST']=1
-    df_hist_aux['CRUCE_CIERRE']=1
-    # SETEO VARIABLES DE NUEVA VENTA Y NUEVO VENCIMIENTO EN CASO DE QUE SEA LA PRIMERA ITERACION
-    if 'NUEVA VENTA' not in df_cierre_aux.columns: df_cierre_aux['NUEVA VENTA']=1
-    if 'NUEVO VENCIMIENTO' not in df_hist_aux.columns: df_hist_aux['NUEVO VENCIMIENTO']=0
-    # APERTURA DE DF HISTORICO ENTRE LOS QUE VENCIERON ANTES Y LOS QUE NO
-    df_cierre_aux_nocruzar=df_cierre_aux[(df_cierre_aux['NUEVA VENTA']==0)|(df_cierre_aux[campo_cruce]=='')].copy()
-    df_cierre_aux_cruzar=df_cierre_aux[(df_cierre_aux['NUEVA VENTA']==1)&(df_cierre_aux[campo_cruce]!='')].copy()
-    df_hist_aux_nocruzar=df_hist_aux[(df_hist_aux['CRUCE CIERRE']==1)|(df_hist_aux[campo_cruce]=='')].copy()
-    df_hist_aux_cruzar=df_hist_aux[(df_hist_aux['CRUCE CIERRE']==0)&(df_hist_aux[campo_cruce]!='')].copy()
-    if (condicion)&(campos_extra!=''):df_hist_aux_cruzar.drop(columns=campos_extra+['SSEGURO_NUEVA'],axis=1,inplace=True)
-    # PRINT DE CARACTERISTICAS DE LOS DF A CRUZAR
-    print('El df de cierre a cruzar contiene {} registros con la {}'.format(df_cierre_aux_cruzar.shape[0],campo_cruce))
-    print('El historico a cruzar contiene {} registros con la {}'.format(df_hist_aux_cruzar.shape[0],campo_cruce))
-    # REVISO LOS DUPLICADOS
-    duplicados_df_cierre=df_cierre_aux_cruzar.loc[df_cierre_aux_cruzar.duplicated(subset=[campo_cruce],keep=False)]
-    duplicados_df_hist=df_hist_aux_cruzar.loc[df_hist_aux_cruzar.duplicated(subset=[campo_cruce],keep=False)]
-    duplicados_df_cierre=duplicados_df_cierre[duplicados_df_cierre[campo_cruce].isin(list(df_hist_aux_cruzar[campo_cruce].unique()))]
-    duplicados_df_hist=duplicados_df_hist[duplicados_df_hist[campo_cruce].isin(list(df_cierre_aux_cruzar[campo_cruce].unique()))]
-    if not (duplicados_df_cierre.empty): duplicados_df_cierre.to_csv(ruta_historico_output+'\\0. Duplicados df '+campo_cruce+'.txt',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
-    if not (duplicados_df_hist.empty): duplicados_df_hist.to_csv(ruta_historico_output+'\\0. Duplicados Historico '+campo_cruce+'.txt',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
-    # REALIZO LOS MERGE DE AMBOS LADOS
-    df_cierre_aux_cruzado=df_cierre_aux_cruzar.merge(df_hist_aux_cruzar[[campo_cruce,'CRUCE_CIERRE']],how='left',on=campo_cruce)
-    df_hist_aux_cruzado=df_hist_aux_cruzar.merge(df_cierre_aux_cruzar[campos_cruzar_hist],how='left',on=campo_cruce,suffixes=['','_NUEVA'])
-    # RE-DEFINO LAS VARIABLES NUEVO VENCIMIENTO Y NUEVA VENTA CUANDO CORRESPONDA
-    df_cierre_aux_cruzado['NUEVA VENTA']=np.where(~df_cierre_aux_cruzado['CRUCE_CIERRE'].isnull(),0,df_cierre_aux_cruzado['NUEVA VENTA'])
-    df_hist_aux_cruzado['CRUCE CIERRE']=np.where(~df_hist_aux_cruzado['CRUCE_HIST'].isnull(),1,df_hist_aux_cruzado['CRUCE CIERRE'])
-    df_hist_aux_cruzado['NUEVO VENCIMIENTO']=np.where((df_hist_aux_cruzado['FECHA_ANULACION'].isnull())&(~df_hist_aux_cruzado['FECHA_ANULACION_NUEVA'].isnull())&(df_hist_aux_cruzado['FECHA_ANULACION_NUEVA']<df_hist_aux_cruzado['FECHA_VENCIMIENTO']),1,df_hist_aux_cruzado['NUEVO VENCIMIENTO'])
-    if uso_fecha_anulacion_historico==1: df_hist_aux_cruzado['FECHA_ANULACION']=df_hist_aux_cruzado['FECHA_ANULACION_NUEVA']
-    else: df_hist_aux_cruzado['FECHA_ANULACION']=np.where(df_hist_aux_cruzado['NUEVO VENCIMIENTO']==1,df_hist_aux_cruzado['FECHA_ANULACION_NUEVA'],df_hist_aux_cruzado['FECHA_ANULACION'])
-    # PRINT DE CUANTOS REGISTROS SE CRUZARON
-    print('En el df de cierre se cruzaron {} registros'.format(sum(~df_cierre_aux_cruzado['CRUCE_CIERRE'].isnull())))
-    print('En el df historico se cruzaron {} registros'.format(sum(~df_hist_aux_cruzado['CRUCE_HIST'].isnull())))
-    # JUNTO LOS DF HISTORICOS
-    df_hist_aux=pd.concat([df_hist_aux_cruzado,df_hist_aux_nocruzar],axis=0)
-    df_cierre_aux=pd.concat([df_cierre_aux_cruzado,df_cierre_aux_nocruzar],axis=0)
-    if df_hist_aux.shape[0]>df_hist.shape[0]: escribe_reporta(archivo_reporte,'Cruce de Dataframe Historico hizo un doble cruce {} veces para la llave {}'.format(df_hist_aux.shape[0]-df_hist.shape[0],campo_cruce))
-    if df_cierre_aux.shape[0]>df_cierre.shape[0]: escribe_reporta(archivo_reporte,'Cruce de Dataframe de Cierre hizo un doble cruce {} veces para la llave {}'.format(df_cierre_aux.shape[0]-df_cierre.shape[0],campo_cruce))
-    # DEFINIMOS LOS NUEVOS DF DE CIERRE E HISTORICO
-    df_cierre_aux=df_cierre_aux[list(df_cierre.columns)].copy()
-    if condicion: df_hist_aux=df_hist_aux[list(df_hist.columns)].copy()
-    else: df_hist_aux=df_hist_aux[list(df_hist.columns)+campos_extra+['SSEGURO_NUEVA']].copy()
-    return df_cierre_aux,df_hist_aux
-
-
-def calcula_devoluciones(vencimientos,campo_devolver='PRIMA REASEGURO'):
-    venc_aux=vencimientos.copy()
-    venc_aux['PLAZO DIAS']=np.maximum((venc_aux['FECHA_VENCIMIENTO']-venc_aux['FECHA_EFECTO']).dt.days-venc_aux['CARENCIA'],1)
-    venc_aux['DIAS CONSUMIDOS']=np.minimum(np.maximum((venc_aux['FECHA_ANULACION']-venc_aux['FECHA_EFECTO']).dt.days-venc_aux['CARENCIA'],0),venc_aux['PLAZO DIAS'])
-    venc_aux['FACTOR DEVOLUCION']=np.minimum((venc_aux['PLAZO DIAS']-venc_aux['DIAS CONSUMIDOS'])/venc_aux['PLAZO DIAS'],1)
-    venc_aux[campo_devolver+' A DEVOLVER']=venc_aux[campo_devolver]*venc_aux['FACTOR DEVOLUCION']
-    # return venc_aux[list(vencimientos.columns)+[campo_devolver+' A DEVOLVER']]
-    return venc_aux
-
-
-def historico_quita_registros():
-    cols_date = ['FECHA_EFECTO', 'FECHA_VENCIMIENTO', 'FECHA_ANULACION']
-    dic_types={'ICAPITAL':float}
-    historico = pd.read_csv(ruta_historico_input+'1. Inputs Auxiliares\\Historicos\\'+'Historico '+contrato+' '+str(periodo_historico)+'.txt', sep=';',decimal='.', date_format='%d-%m-%Y', parse_dates=cols_date, low_memory=False,dtype=dic_types)
-    cols_hist = list(historico.columns)
-    # DEFINO LA LLAVE Y FILTRO
-    historico['LLAVE']=historico['RUT'].astype('int64').astype('string')+'_'+historico['POLIZA'].astype('int64').astype('string')+'_'+historico['CODIGO COBERTURA'].astype('int64').astype('string')+'_'+historico['FECHA_EFECTO'].astype('string')+'_'+historico['FECHA_VENCIMIENTO'].astype('string')
-    historico_corregido=historico[~historico['LLAVE'].isin(['14147585_565_112_2021-03-10_2026-05-07',	'14147585_565_6_2021-03-10_2026-05-07',	'16832861_565_112_2020-11-26_2022-12-05',	'16832861_565_6_2020-11-26_2022-12-05',	'17393478_565_112_2021-08-06_2024-09-04',	'17393478_565_6_2021-08-06_2024-09-04',	'5972764_565_112_2021-02-17_2025-05-15',	'7359700_565_112_2021-09-21_2026-10-02'])]
-    historico_eliminado=historico[historico['LLAVE'].isin(['14147585_565_112_2021-03-10_2026-05-07',	'14147585_565_6_2021-03-10_2026-05-07',	'16832861_565_112_2020-11-26_2022-12-05',	'16832861_565_6_2020-11-26_2022-12-05',	'17393478_565_112_2021-08-06_2024-09-04',	'17393478_565_6_2021-08-06_2024-09-04',	'5972764_565_112_2021-02-17_2025-05-15',	'7359700_565_112_2021-09-21_2026-10-02'])]
-    # REALIZO EXPORTACION
-    historico_corregido[cols_hist].to_csv(ruta_extensa+'Historico Corregido.txt',sep=';',decimal='.',date_format='%d-%m-%Y',index=False)
-    historico_eliminado[cols_hist].to_csv(ruta_extensa+'Historico Eliminado.txt',sep=';',decimal='.',date_format='%d-%m-%Y',index=False)
-
-
-def base_cesantia_quita_registros():
-    cols_date=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION']
-    dateparse_forma2 = lambda x: pd.to_datetime(x, format='%d-%m-%Y',errors='coerce')
-    df_iaxis_0_0=pd.read_csv(ruta_input+archivo_input,sep=separador_input,decimal=decimal_input,parse_dates=cols_date,date_format='%d-%m-%Y',encoding='latin-1',low_memory=False)
-    df_iaxis_0_0=df_iaxis_0_0[~df_iaxis_0_0['SSEGURO'].isin([1717494,1717789,1479342,1723646,1724421,1724423,1724539,1725023,1725150,1725791,1727021,1727363,1727862,1487680,1487693,1730782,1489987,1732639,1735083,1735458,1736032,1736052,1736705,1736906,1737967,1739388,1741399,1742163,1745146,1746182,1750354,1750475,1755755,1513231,1758352,1760507,1472115,1708711,1708717,1708799,1709180,1472836,1709763,1710676,1710713,1710987,2152297,1712503,1712758,1714049,1714181,1715214,1715623,1715954,1716560])]
-    df_iaxis_0_0.to_csv(archivo_input,sep=separador_input,decimal=decimal_input,date_format='%d-%m-%Y',index=False)
-
-
-def lista_campos_reaseguradores(cols_reporte_reaseguradores,lista_reaseguradores):
-    lista=[]
-    for col in cols_reporte_reaseguradores:
-        for reasegurador in lista_reaseguradores:
-            lista.append(col+'_'+reasegurador)
-    return lista
-
-
-
-
-def recalculo_bdx_kfijo(df_historico,lista_reaseguradores):
-    df_historico=df_historico[df_historico['APLICA']==1].copy()
-    fecha_aumento_prima = datetime.datetime(2020,10,5)
-    costo_reaseguro = 0.015
-    factor_profit = 1 - 0.4
-    df_historico['CARENCIA']=0
-    df_historico['PERIODO']=periodo
-    df_historico['PERIODO_EFECTO']=df_historico['FECHA_EFECTO'].dt.year*100+df_historico['FECHA_EFECTO'].dt.month
-    df_historico['PORCENTAJE CESION'] = (np.minimum(df_historico['ICAPITAL'],3000)*0.75+np.maximum(df_historico['ICAPITAL']-3000,0))/df_historico['ICAPITAL']
-    df_historico['TIPO RVA']=np.where(((df_historico['FECHA_VENCIMIENTO']-df_historico['FECHA_EFECTO']).dt.days>365)&(df_historico['CODIGO COBERTURA']==112),'RM','RRC')
-    df_historico['FACTOR NP']=np.where(df_historico['FECHA_EFECTO']>=fecha_aumento_prima,1/1.1,1)
-    df_historico = calcula_devoluciones(df_historico)
-    df_historico['FACTOR DEVOLUCION'] = np.where(df_historico['FACTOR DEVOLUCION'].isnull(),0,df_historico['FACTOR DEVOLUCION'])
-    df_historico['PRIMA REASEGURO A DEVOLVER'] = df_historico['PRIMA REASEGURO'] * df_historico['FACTOR DEVOLUCION']
-    df_historico['PRIMA NETA ANUAL A DEVOLVER'] = df_historico['PRIMA NETA ANUAL'] * df_historico['FACTOR DEVOLUCION']
-    df_historico['GGAA REASEGURADOR'] = df_historico['PRIMA REASEGURO'] * costo_reaseguro
-    df_historico['COMISION CORREDOR CEDIDA'] = np.where(df_historico['CODIGO COBERTURA']==112,1.19,1)*0.3373*df_historico['PRIMA REASEGURO']
-    df_historico['COMISION RECAUDACION'] = np.where(df_historico['CODIGO COBERTURA']==112,1.19,0)*0.06
-    df_historico['COMISION CORREDOR CEDIDA A DEVOLVER'] = df_historico['COMISION CORREDOR CEDIDA'] * df_historico['FACTOR DEVOLUCION']
-    df_historico['RVA MES1 CEDIDA'] = df_historico['RVA MES1'] * df_historico['PORCENTAJE CESION']
-    df_historico['COMISION TODO EVENTO'] = df_historico['PRIMA REASEGURO']*df_historico['FACTOR NP']-df_historico['COMISION CORREDOR CEDIDA']*df_historico['FACTOR NP']-df_historico['COMISION RECAUDACION']-0.35*df_historico['RVA MES1 CEDIDA']*np.where(df_historico['TIPO RVA']=='RRC',df_historico['FACTOR NP'],1)
-    df_historico['COMISION TODO EVENTO A DEVOLVER'] = df_historico['COMISION TODO EVENTO'] * df_historico['FACTOR DEVOLUCION']
-    df_historico['PROFIT'] = np.where(df_historico['FECHA_EFECTO']>=fecha_aumento_prima,0.1/1.1,0) * (df_historico['PRIMA REASEGURO'] - df_historico['COMISION CORREDOR CEDIDA'])*factor_profit
-    # VARIABLES DE SALIDA QUE NECESITO CONSTRUIR
-    df_historico['COMISION CORREDOR'] = np.where(df_historico['CODIGO COBERTURA']==112,1.19,1)*0.3373*df_historico['PRIMA NETA ANUAL']
-    df_historico['COMISION CORREDOR A DEVOLVER'] = df_historico['COMISION CORREDOR'] * df_historico['FACTOR DEVOLUCION']
-    df_historico['TIPO COBERTURA']=np.where(df_historico['CODIGO COBERTURA']==6,'ITP','FALLECIMIENTO')
-    df_historico['CAIDA']=np.where(df_historico['FECHA_ANULACION'].isnull(),'NO','SI')
-    df_historico['TIPO RVA FALLECIMIENTO']=np.where(df_historico['CODIGO COBERTURA']==112,df_historico['TIPO RVA'],'')
-    df_historico['ICAPITAL FALLECIMIENTO']=np.where(df_historico['CODIGO COBERTURA']==112,df_historico['ICAPITAL'],0)
-    df_historico['PRIMA NETA ANUAL FALLECIMIENTO']=np.where(df_historico['CODIGO COBERTURA']==112,df_historico['PRIMA NETA ANUAL'],0)
-    df_historico['RVA MES1 FALLECIMIENTO']=np.where(df_historico['CODIGO COBERTURA']==112,df_historico['RVA MES1'],0)
-    df_historico['TIPO RVA ITP']=np.where(df_historico['CODIGO COBERTURA']==6,df_historico['TIPO RVA'],'')
-    df_historico['ICAPITAL ITP']=np.where(df_historico['CODIGO COBERTURA']==6,df_historico['ICAPITAL'],0)
-    df_historico['PRIMA NETA ANUAL ITP']=np.where(df_historico['CODIGO COBERTURA']==6,df_historico['PRIMA NETA ANUAL'],0)
-    df_historico['RVA MES1 ITP']=np.where(df_historico['CODIGO COBERTURA']==6,df_historico['RVA MES1'],0)
-    df_historico['PRIMA NETA BASE']=df_historico['PRIMA NETA ANUAL']*df_historico['FACTOR NP']
-    df_historico['PRIMA NETA AUMENTO']=df_historico['PRIMA NETA ANUAL']-df_historico['PRIMA NETA BASE']
-    df_historico['PRIMA NETA BASE A DEVOLVER']=df_historico['PRIMA NETA ANUAL A DEVOLVER']*df_historico['FACTOR NP']
-    df_historico['PRIMA NETA AUMENTO A DEVOLVER']=df_historico['PRIMA NETA ANUAL A DEVOLVER']-df_historico['PRIMA NETA BASE A DEVOLVER']
-    df_historico['RVA MES1 BASE']=np.where(df_historico['TIPO RVA']=='RM',df_historico['RVA MES1'],df_historico['RVA MES1']*df_historico['FACTOR NP'])
-    df_historico['RVA MES1 AUMENTO']=df_historico['RVA MES1']-df_historico['RVA MES1 BASE']
-    df_historico['PORCENTAJE COMISION']=(df_historico['COMISION CORREDOR CEDIDA']+df_historico['COMISION RECAUDACION'])/df_historico['PRIMA REASEGURO']
-    df_historico['COMISION BASE (INCLUYE DEV)']=(df_historico['COMISION CORREDOR']-df_historico['COMISION CORREDOR A DEVOLVER'])*df_historico['FACTOR NP']+df_historico['COMISION RECAUDACION']
-    df_historico['COMISION AUMENTO (INCLUYE DEV)']=(df_historico['COMISION CORREDOR']-df_historico['COMISION CORREDOR A DEVOLVER'])*(1-df_historico['FACTOR NP'])
-    df_historico['PRIMA REASEGURO BASE (INCLUYE DEV)']=(df_historico['PRIMA REASEGURO']-df_historico['PRIMA REASEGURO A DEVOLVER'])*df_historico['FACTOR NP']
-    df_historico['PRIMA REASEGURO AUMENTO (INCLUYE DEV)']=(df_historico['PRIMA REASEGURO']-df_historico['PRIMA REASEGURO A DEVOLVER'])*(1-df_historico['FACTOR NP'])
-    df_historico['COMISION CEDIDA BASE (INCLUYE DEV)']=(df_historico['COMISION CORREDOR CEDIDA']-df_historico['COMISION CORREDOR CEDIDA A DEVOLVER'])*df_historico['FACTOR NP']+df_historico['COMISION RECAUDACION']
-    df_historico['COMISION CEDIDA AUMENTO (INCLUYE DEV)']=(df_historico['COMISION CORREDOR CEDIDA']-df_historico['COMISION CORREDOR CEDIDA A DEVOLVER'])*(1-df_historico['FACTOR NP'])
-    df_historico['GGAA REASEGURADOR BASE']=df_historico['GGAA REASEGURADOR']*df_historico['FACTOR NP']
-    df_historico['GGAA REASEGURADOR AUMENTO']=df_historico['GGAA REASEGURADOR']-df_historico['GGAA REASEGURADOR BASE']
-    reportes(df_historico,'Recalculo BDX Reservas', lista_reaseguradores)
-    reportes(df_historico[~df_historico['FECHA_ANULACION'].isnull()],'Recalculo BDX Anulaciones', lista_reaseguradores)
-    return df_historico
-    
-    
-def calculo_fechas_renovacion(df,campo_inicio,campo_fin,campo_anulacion,campo_periodicidad,periodo_cierre,ajuste_pu=1):
-    df_aux=df.copy()
-    cierre_month=periodo_cierre%100
-    cierre_year=int(periodo_cierre/100)
-    # fecha_cierre=datetime.datetime(int(periodo_cierre/100),periodo_cierre%100,calendar.monthrange(int(periodo_cierre/100), periodo_cierre%100)[1])
-    # Defino los campos de dia mes y año para la fecha de la ultima renovacion
-    df_aux['year']=cierre_year-np.where((df_aux[campo_inicio].dt.month>cierre_month)|((df_aux[campo_anulacion].dt.month*100+df_aux[campo_anulacion].dt.day<df_aux[campo_inicio].dt.month*100+df_aux[campo_inicio].dt.day)&(~df_aux[campo_anulacion].isnull())),1,0)
-    df_aux['month']=df_aux[campo_inicio].dt.month
-    df_aux['day']=np.where((df_aux[campo_inicio].dt.day==29)&(df_aux['month']==2)&(df_aux['year']%4>0),28,df_aux[campo_inicio].dt.day)
-    df_aux['INICIO RENOVACION']=np.maximum(pd.to_datetime(df_aux[['year','month','day']]),df_aux[campo_inicio])
-    # Defino los campos de dia mes y año para la fecha de la proxima renovacion
-    df_aux['year']=df_aux['INICIO RENOVACION'].dt.year+1
-    df_aux['day']=np.where((df_aux[campo_inicio].dt.day==29)&(df_aux['month']==2)&(df_aux['year']%4>0),28,df_aux[campo_inicio].dt.day)
-    df_aux['FIN RENOVACION']=np.where(df_aux[campo_fin].isnull(),pd.to_datetime(df_aux[['year','month','day']]),np.minimum(pd.to_datetime(df_aux[['year','month','day']]),df_aux[campo_fin]))
-    # Ajusto en caso de primas unicas
-    if ajuste_pu==1: 
-        series_inicio=np.where(df_aux[campo_periodicidad]==0,df_aux[campo_inicio],df_aux['INICIO RENOVACION'])
-        series_fin=np.where(df_aux[campo_periodicidad]==0,df_aux[campo_fin],df_aux['FIN RENOVACION'])
-    else:
-        series_inicio=df_aux['INICIO RENOVACION']
-        series_fin=df_aux['FIN RENOVACION']
-    return series_inicio,series_fin
-
-
-def dist_meses(df,fec_ini,fec_fin,nombre_campo,lastday_include=0,firstday_include=1):
-    # REVISAMOS SI VAMOS A UTILIZAR UNA FECHA FIJA O UN CAMPO DENTRO DEL DATAFRAME PARA LA FECHA DE INICIO Y DE FIN
-    type_fini=type(fec_ini)
-    type_ffin=type(fec_fin)
-    # A PARTIR DE LO ANTERIOR, DEFINO UNAS FECHAS A UTILIZAR PARA LOS CALCULOS (QUE DEPENDEN SI ES UN DATO UNICO O UN PANDA SERIES)
-    if type_fini==datetime.datetime: finmes_ini=fec_ini+MonthEnd(0)
-    else: finmes_ini=pd.to_datetime(df[fec_ini], format="%Y-%m-%d")+ MonthEnd(0)
-    if type_ffin==datetime.datetime: finmes_fin=fec_fin+MonthEnd(0)
-    else: finmes_fin=pd.to_datetime(df[fec_fin], format="%Y-%m.%d")+ MonthEnd(0)
-    # DEPENDIENDO DEL TIPO DE DATO ES QUE HACEMOS LOS CALCULOS
-    if (type_fini==datetime.datetime)&(type_ffin==datetime.datetime):
-        df[nombre_campo]=(fec_fin.year-fec_ini.year)*12+(fec_fin.month-fec_ini.month)+((finmes_ini.day-fec_ini.day+firstday_include)/finmes_ini.day)+((fec_fin.day-finmes_fin.day-1+lastday_include)/finmes_fin.day)
-    if (type_fini==datetime.datetime)&(type_ffin==str):
-        df[nombre_campo]=(df[fec_fin].dt.year-fec_ini.year)*12+(df[fec_fin].dt.month-fec_ini.month)+((finmes_ini.day-fec_ini.day+firstday_include)/finmes_ini.day)+((df[fec_fin].dt.day-finmes_fin.dt.day-1+lastday_include)/finmes_fin.dt.day)
-    if (type_fini==str)&(type_ffin==datetime.datetime):
-        df[nombre_campo]=(fec_fin.year-df[fec_ini].dt.year)*12+(fec_fin.month-df[fec_ini].dt.month)+((finmes_ini.dt.day-df[fec_ini].dt.day+firstday_include)/finmes_ini.dt.day)+((fec_fin.day-finmes_fin.day-1+lastday_include)/finmes_fin.day)
-    if (type_fini==str)&(type_ffin==str):
-        df[nombre_campo]=(df[fec_fin].dt.year-df[fec_ini].dt.year)*12+(df[fec_fin].dt.month-df[fec_ini].dt.month)+((finmes_ini.dt.day-df[fec_ini].dt.day+firstday_include)/finmes_ini.dt.day)+((df[fec_fin].dt.day-finmes_fin.dt.day-1+lastday_include)/finmes_fin.dt.day)
-
-
-
-    
-
-def filtra_df(df,lista_campos,lista_valores):
-    df_filtrado=df.copy()
-    # For que va filtrando 1 a 1 las caracteristicas del tipo_calculo de reaseguro en el dataframe    
-    for col,valor in zip(lista_campos,lista_valores):
-       if str(valor)!='nan': df_filtrado=df_filtrado[df_filtrado[col]==valor]
-       if df_filtrado.empty: return df_filtrado,df
-    df_a_filtrar=df.loc[df.index.difference(df_filtrado.index)]
-    return df_filtrado,df_a_filtrar
-
-
-
-
-def calcula_exposicion(df,campo_inicio,campo_fin,exp_days,fec_bop,fec_eop):
-    """ Funcion de calculo de exposicion """
-    df_aux=df.copy()
-    df_aux['INICIO MES']=pd.Timestamp(fec_bop.year, fec_bop.month, fec_bop.day)
-    df_aux['FIN MES']=pd.Timestamp(fec_eop.year, fec_eop.month, fec_eop.day)+datetime.timedelta(days=1)
-    serie_inicio=np.maximum(df_aux['INICIO MES'],df_aux[campo_inicio])
-    serie_fin=np.minimum(df_aux['FIN MES'],df_aux[campo_fin])
-    serie_exposicion=np.where((df_aux[campo_inicio]>fec_eop) | (df_aux[campo_fin]<fec_bop) |(df_aux[campo_inicio]>df_aux[campo_fin]),0,((serie_fin-serie_inicio).dt.days)/exp_days)
-    return serie_exposicion
-
-
 def calcula_edad(rut_series,fec_nac_series,fec_corte_series,edad_perdidos,edad_tope,reporta_issues = 0, edad_inf = 0, aplica_edad_prom_cartera = 0):
     """ Funcion de calculo de edad """
     df_ruts=pd.DataFrame({'RUT':rut_series,'FEC_NAC':fec_nac_series})
@@ -626,25 +385,15 @@ def calcula_edad(rut_series,fec_nac_series,fec_corte_series,edad_perdidos,edad_t
     if reporta_issues==0: return edad_series_final
     else: return edad_series_final,registros_issues
     
-
-def cruce_comisiones(df_aux,comisiones):
-    comisiones_unicas=comisiones[comisiones['NRO_CASOS']==1].copy()
-    comisiones_con_fechas=comisiones[comisiones['NRO_CASOS']>1].copy()
-    df_com_unicas=df_aux.merge(comisiones_unicas[['POL_PROD','COMISION']],how='inner',on=['POL_PROD'])
-    df_com_con_fechas=pd.DataFrame()
-    for pol_prod in comisiones_con_fechas['POL_PROD'].unique():
-        tabla_filtrada=comisiones_con_fechas[comisiones_con_fechas['POL_PROD']==pol_prod].copy()
-        df_filtrado=df_aux[df_aux['POL_PROD']==pol_prod].copy()
-        df_com_con_fechas=pd.concat([df_com_con_fechas,pd.merge_asof(df_filtrado.sort_values('FECHA_EFECTO'),tabla_filtrada.sort_values('FECHA_EMISION_COMISION').drop(['POL_PROD','NRO_CASOS'],axis=1),left_on=['FECHA_EFECTO'],right_on='FECHA_EMISION_COMISION')],axis=0)
-    df_final=pd.concat([df_com_unicas,df_com_con_fechas],axis=0)
-    if df_final.shape[0]>df_aux.shape[0]: escribe_reporta(archivo_reporte, 'El cruce de comisiones hizo más cruces')
-    elif df_final.shape[0]<df_aux.shape[0]: 
-        escribe_reporta(archivo_reporte, 'El cruce de comisiones hizo menos cruces')
-        df_cruce=df_aux.merge(comisiones_unicas[['POL_PROD','COMISION']],how='left',on=['POL_PROD'])
-        df_cruce[df_cruce['COMISION'].isnull()].to_csv(ruta_output+'0. Registros sin Comisiones.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
-    return df_final
-
-
+def calcula_exposicion(df,campo_inicio,campo_fin,exp_days,fec_bop,fec_eop):
+    """ Funcion de calculo de exposicion """
+    df_aux=df.copy()
+    df_aux['INICIO MES']=pd.Timestamp(fec_bop.year, fec_bop.month, fec_bop.day)
+    df_aux['FIN MES']=pd.Timestamp(fec_eop.year, fec_eop.month, fec_eop.day)+datetime.timedelta(days=1)
+    serie_inicio=np.maximum(df_aux['INICIO MES'],df_aux[campo_inicio])
+    serie_fin=np.minimum(df_aux['FIN MES'],df_aux[campo_fin])
+    serie_exposicion=np.where((df_aux[campo_inicio]>fec_eop) | (df_aux[campo_fin]<fec_bop) |(df_aux[campo_inicio]>df_aux[campo_fin]),0,((serie_fin-serie_inicio).dt.days)/exp_days)
+    return serie_exposicion
 
 
 def completa_campo(df,campo_rellenar,campos_agrupar,campo_cero=False):
@@ -737,17 +486,6 @@ def recargos(df, calcula_recargos=1):
     if calcula_recargos==1: df_final['PRIMA REASEGURO']=df_final['PRIMA REASEGURO SIN RECARGO']+df_final['RECARGO']
     return df_final
     
-    
-    
-    
-        
-    
-def check_campo(df,campo):
-    if campo not in df.columns:
-        escribe_reporta(archivo_reporte,'El campo {} no se encuentra en el dataframe'.format(campo))
-        return 0
-    else: return 1            
-
 
 def cruce_left(df_1, df_2, left_on, right_on, suffixes=('_df1', '_df2'), informa_no_cruces=1 ,name = '', ruta_output=ruta_output):
 
@@ -785,219 +523,6 @@ def cruce_left(df_1, df_2, left_on, right_on, suffixes=('_df1', '_df2'), informa
     return merged_df
 
 
-def cross_new_elements(df_anterior, df_actual, campos_comparar, ruta_output):
-    # Verificar si los campos de comparación están presentes en ambos dataframes
-    for campo in campos_comparar:
-        if campo not in df_anterior.columns:
-            raise ValueError(f'El campo "{campo}" no está presente en el dataframe anterior.')
-        if campo not in df_actual.columns:
-            raise ValueError(f'El campo "{campo}" no está presente en el dataframe actual.')
-            
-      # Eliminar elementos duplicados en cada dataframe y dejar solamente la primera ocurrencia de cada duplicado
-    nuevos_productos_anterior = df_anterior.drop_duplicates(subset=campos_comparar, keep='first')
-    nuevos_productos_actual = df_actual.drop_duplicates(subset=campos_comparar, keep='first')
-    
-    nuevos_productos_anterior['Origen df']='Previo'
-    nuevos_productos_actual['Origen df']='Actual'
-    # Concatenar y eliminar duplicados para identificar nuevos elementos
-    nuevos_productos = pd.concat([nuevos_productos_anterior, nuevos_productos_actual]).drop_duplicates(subset=campos_comparar, keep=False)
-
-    # Imprimir la cantidad de nuevas combinaciones
-    cantidad_nuevas_combinaciones = len(nuevos_productos)
-    if cantidad_nuevas_combinaciones > 0: escribe_reporta(archivo_reporte,'Hay'+str(cantidad_nuevas_combinaciones)+ ' nuevas combinaciones encontradas.')
-    # else:
-        # print('No hay nuevas combinaciones.')
-        
-    # Guardar resultados en un archivo de salida (formato txt)
-    nuevos_productos_sin_duplicados = nuevos_productos.drop_duplicates(subset=campos_comparar)
-    nuevos_productos_sin_duplicados[campos_comparar+['Origen df']].to_csv(ruta_output + '/nuevos_productos.txt', index=False, sep=separador_output, decimal=decimal_output)
-
-
-def reportes(df,instancia,lista_reaseguradores):
-    salidas=pd.read_excel(io=ruta_extensa+archivo_calculos,sheet_name='Salidas')
-    filtro = (salidas['TIPO CALCULO'] == tipo_calculo) & (salidas['CONTRATO'] == contrato) & (salidas['INSTANCIA'] == instancia) & (salidas['APLICA'] == 1)
-    salidas=salidas[filtro]
-    salidas=salidas.replace(np.nan, '', regex=True)
-    if salidas.empty:
-        print('No se encontraron reportes para esta instancia y condiciones.')
-    count=1
-    nombres_vistos=set()
-    for index,row in salidas.iterrows():
-        nombre_salida=row['NOMBRE SALIDA']
-        stack=row['STACK']
-        cols_groupby,cols_agg=cols_reportes(row['COLS_GROUPBY'],row['COLS_GROUPBY_REASEG'],row['COLS_AGG'],row['COLS_AGG_REASEG'],lista_reaseguradores)
-        cols_groupby= cols_groupby if cols_groupby else list(df.columns)
-        if not nombre_salida:
-            nombre_salida=f'Reporte {count}'
-        if nombre_salida in nombres_vistos:
-            print(f"Advertencia_el nombre de salida {nombre_salida} se repite.")
-        nombres_vistos.add(nombre_salida)
-        crea_reporte(df,cols_groupby,nombre_salida,stack,cols_agg)
-        count+=1
-
-
-def crea_reporte(df,cols_groupby,nombre_archivo,stack,cols_agg=''):
-    #Verificar si las columnas existen en el dataframe
-    cols_faltantes = [col for col in cols_groupby + list(cols_agg) if col not in df.columns]
-    if cols_faltantes:
-        # raise ValueError(f"Las siguientes columnas no se encuentran en el DataFrame: {', '.join(cols_faltantes)}")
-        escribe_reporta(archivo_reporte,f"Las siguientes columnas no se encuentran en el DataFrame: {', '.join(cols_faltantes)}")
-    #Determinar el tipo de reporte
-    tipo_reporte='groupby' if cols_agg else 'extract'
-    if tipo_reporte == 'groupby':
-        if stack==0: reporte=df.groupby(cols_groupby,dropna=False)[cols_agg].agg('sum').reset_index()
-        else: reporte=df.groupby(cols_groupby,dropna=False)[cols_agg].agg('sum').stack().reset_index()
-    else:
-        reporte=df[cols_groupby]
-    #Determinar el nombre del archivo
-    extension='csv' if tipo_reporte == 'groupby' else 'txt'
-    if isinstance(nombre_archivo, int):
-        nombre_archivo=f'Reporte Nro {nombre_archivo}.{extension}'
-    else:
-        nombre_archivo=f'{nombre_archivo}.{extension}'
-    #Guardar el reporte
-    reporte.to_csv(ruta_output+nombre_archivo,sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
-        
-    print(f'Archivo {nombre_archivo} generado correctamente.')
-    
-    
-def cols_reportes(columnas_groupby,columnas_groupby_reaseg,columnas_agg,columnas_agg_reaseg,lista_reaseguradores):
-    cols_groupby=columnas_groupby.split(',') if columnas_groupby else []
-    cols_agg=columnas_agg.split(',') if columnas_agg else []
-    cols_groupby_reaseg=columnas_groupby_reaseg.split(',') if columnas_groupby_reaseg else []
-    cols_agg_reaseg=columnas_agg_reaseg.split(',') if columnas_agg_reaseg else []
-    if cols_groupby_reaseg: cols_groupby=cols_groupby+lista_campos_reaseguradores(cols_groupby_reaseg,lista_reaseguradores)
-    if cols_agg_reaseg: cols_agg=cols_agg+lista_campos_reaseguradores(cols_agg_reaseg,lista_reaseguradores)
-    return cols_groupby,cols_agg
-    
-
-def cols_instancia(instancia,lista_reaseguradores):
-    salidas=pd.read_excel(io=ruta_extensa+archivo_calculos,sheet_name='Salidas')
-    filtro = (salidas['TIPO CALCULO'] == tipo_calculo) & (salidas['CONTRATO'] == contrato) & (salidas['INSTANCIA'] == instancia) & (salidas['APLICA'] == 1)
-    salidas=salidas[filtro]
-    salidas=salidas.replace(np.nan, '', regex=True)
-    cols_groupby=[]
-    cols_agg=[]
-    for index,row in salidas.iterrows():
-        cols_groupby_aux,cols_agg_aux=cols_reportes(row['COLS_GROUPBY'],row['COLS_GROUPBY_REASEG'],row['COLS_AGG'],row['COLS_AGG_REASEG'],lista_reaseguradores)
-        cols_groupby=cols_groupby+cols_groupby_aux
-        cols_agg=cols_agg+cols_agg_aux
-    return list(set(cols_groupby+cols_agg))     
-    
-
-   
-    
-    
-    
-def exportar_casos(lista_filtrar,df_python,df_vs,campos_python,campo_vs=''):
-    if campo_vs=='': campo_vs=campos_python
-    for i in range(len(campos_python)):
-        if i==0: df_aux_python=df_python
-        if i==0: df_aux_vs=df_vs
-        df_aux_python=df_aux_python[df_aux_python[campos_python[i]].isin(lista_filtrar[i])]
-        df_aux_vs=df_aux_vs[df_aux_vs[campo_vs[i]].isin(lista_filtrar[i])]
-    df_aux_python.to_csv(ruta_output+'df python revisar casos.csv',sep=separador_output,decimal=decimal_output,encoding='latin-1',date_format='%d-%m-%Y',index=False)
-    df_aux_vs.to_csv(ruta_output+'df vs revisar casos.csv',sep=separador_output,decimal=decimal_output,encoding='latin-1',date_format='%d-%m-%Y',index=False)
-
-
-def pivotear_campos(df,cols_iniciales,cols_agrupar):
-        df_aux=df.pivot(index=cols_iniciales, columns='REASEGURADOR')[cols_agrupar].reset_index()
-        cols=[]
-        for i,j in df_aux.columns:
-            if j=='':cols.append(i)
-            else:cols.append(f'{i}_{j}')
-        df_aux.columns=cols
-        return df_aux
-
-def suma_columnas_reaseguradores(df,columna_like,lista_reaseguradores,elimina_detalle=False):
-    df_aux=df.copy()
-    cols_sumar=[]
-    for columna_df in df_aux.columns:
-        for nombre_reasegurador in lista_reaseguradores:
-            if (columna_like+'_'+nombre_reasegurador in columna_df):
-                cols_sumar.append(columna_df)
-    cols_sumar=list(set(cols_sumar))
-    df_aux[columna_like]=df[cols_sumar].sum(axis=1)
-    if elimina_detalle==True:
-        cols_eliminar=[]
-        for nombre_reasegurador in lista_reaseguradores:
-            cols_eliminar.append(columna_like+'_'+nombre_reasegurador)
-        df_aux.drop(cols_eliminar,axis=1,inplace=True)
-    return df_aux
-
-
-
-def compara_resultados(df_1,df_2,campos_agrupacion_df1,cumulo_df1,campos_agrupacion_df2,cumulo_df2,ruta_output=ruta_output):
-    Path(ruta_output).mkdir(parents=True, exist_ok=True)
-    # comprobamos que se cumplen todas las condiciones para correr bien la comparacion
-    if 'VIGENTE' not in df_2:df_2['VIGENTE DF2']=1
-    count=0
-    if len(campos_agrupacion_df1)!=len(campos_agrupacion_df2):
-        escribe_reporta(archivo_reporte,'listas de campos a evaluar no tienen el mismo largo. REVISAR')
-        count=1
-    for campo in campos_agrupacion_df1+cumulo_df1:
-        if campo not in df_1.columns:
-            escribe_reporta(archivo_reporte,'El campo {} no se encuentra dentro del primer dataframe'.format(campo))
-            count=1
-    for campo in campos_agrupacion_df2+cumulo_df2:
-        if campo not in df_2.columns:
-            escribe_reporta(archivo_reporte,'El campo {} no se encuentra dentro del segundo dataframe'.format(campo))
-            count=1
-    if count==1:
-        return 
-    name_campos_df1=','.join(campos_agrupacion_df1)
-    name_cumulos_df1=','.join(cumulo_df1)
-    print('Comienza analisis de resultados entre python y actuariado para los campos '+name_campos_df1+' sobre '+name_cumulos_df1)
-    df_1['NRO REGISTROS DF1']=1
-    df_2['NRO REGISTROS DF2']=1
-    df1_grouped=df_1[campos_agrupacion_df1+cumulo_df1+['NRO REGISTROS DF1']].groupby(campos_agrupacion_df1, dropna=False).agg(sum).reset_index()
-    df2_grouped=df_2[campos_agrupacion_df2+cumulo_df2+['NRO REGISTROS DF2']].groupby(campos_agrupacion_df2, dropna=False).agg(sum).reset_index()
-    df_crossed=df1_grouped.merge(df2_grouped,how='outer',left_on=campos_agrupacion_df1,right_on=campos_agrupacion_df2)
-    df_crossed_left=df_crossed[df_crossed['NRO REGISTROS DF2'].isnull()]
-    df_crossed_right=df_crossed[df_crossed['NRO REGISTROS DF1'].isnull()]
-    df_crossed_both=df_crossed[(~df_crossed['NRO REGISTROS DF1'].isnull())&(~df_crossed['NRO REGISTROS DF2'].isnull())]
-    for campo_df1,campo_df2 in zip(cumulo_df1,cumulo_df2):
-        print('Resultados sobre el campo {}'.format(campo_df1))
-        print('Los registros que se encuentran en el primer dataframe y no en el segundo suman un total de {} de prima de reaseguro'.format(str(round(sum(df_crossed_left[campo_df1]),2))))
-        print('Los registros que no se encuentran en el primer dataframe pero sí en el segundo suman un total de {} de prima de reaseguro'.format(str(round(sum(df_crossed_right[campo_df2]),2))))
-        print('Los registros que se encuentran en el primer dataframe y también en el segundo suman un total de {} y {} de prima de reaseguro respectivamente'.format(str(round(sum(df_crossed_both[campo_df1]),2)),str(round(sum(df_crossed_both[campo_df2]),2))))
-    df_crossed_both.to_csv(ruta_output+'2. Analisis Cross Campo '+name_campos_df1+'.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
-    df_1.merge(df_crossed_left,how='inner',on=campos_agrupacion_df1).to_csv(ruta_output+'2. Analisis Left Campo '+name_campos_df1+'.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
-    df_2.merge(df_crossed_right,how='inner',on=campos_agrupacion_df2).to_csv(ruta_output+'2. Analisis Right Campo '+name_campos_df1+'.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
-    # return df_crossed
-
-
-# Comparacion de resultados rapida
-# df_salida=pd.read_csv(ruta_output+'3. Calculos Python '+contrato+' '+str(periodo)+'.csv',sep=';',decimal='.')
-# df_iaxis=pd.read_csv(ruta_input+'Salida iAxis '+contrato+' '+str(periodo)+'.txt',sep=';',decimal='.')
-# campos_agrupacion_df1=['SSEGURO','CODIGO COBERTURA IAXIS','POLIZA']
-# campos_agrupacion_df2=['SSEGURO','COBERTURA','NPOLIZA']
-# cumulo_df1='PRIMA REASEGURO'
-# cumulo_df2='IPRIMAREA'
-# compara_resultados(df_salida,df_iaxis,campos_agrupacion_df1,cumulo_df1,campos_agrupacion_df2,cumulo_df2)
-# df_iaxis.to_csv(ruta_output+'3. Calculos Actuariado '+str(periodo)+'.csv',sep=separador_output,decimal=decimal_output)
-    
-    
-def corrige_historicos_siniestros_vida():
-    ruta = '1 Input\\Siniestros de Reaseguro\\Cierre\\1. Inputs Auxiliares\\Historicos\\'
-    periodo=202210
-    periodo_tope=202406
-    while periodo<periodo_tope:
-        date_cols=['FECHA CIERRE MES','FECHA DE NACIMIENTO','FECHA DE DEFUNCION','FECHA_SINIESTRO','FECHA_DENUNCIO','FECHA_PAGO_SANTANDER','INICIO_VIGENCIA','FECHA_TERMINO_VIGENCIA','FECHA_VENCIMIENTO','FECHA CRUCE VIGENCIAS','INICIO DEL CONTRATO','FECHA INICIO CONTRATO','FECHA FIN CONTRATO']
-        historico_pagados = pd.read_csv(f'{ruta}Historico Siniestros Pagados Vida {periodo}.txt',sep=';',decimal='.',encoding='latin-1',parse_dates=date_cols,date_format='%d-%m-%Y',low_memory=False)
-        historico_pagados.info()
-        historico_pagados_202210 = historico_pagados[historico_pagados['FECHA CIERRE MES']==datetime.datetime(2022,10,31)].copy()
-        historico_pagados_202210_nulls = historico_pagados_202210[historico_pagados_202210['FECHA DE NACIMIENTO'].isnull()].copy()
-        historico_pagados_202210_notnulls = historico_pagados_202210[historico_pagados_202210['FECHA DE NACIMIENTO'].notnull()].copy()
-        historico_pagados_resto = historico_pagados[historico_pagados['FECHA CIERRE MES']!=datetime.datetime(2022,10,31)].copy()
-        historico_pagados_202210_nulls['EDAD SINIESTRO']=edad_casos_perdidos
-        historico_pagados_202210_notnulls['EDAD SINIESTRO']=((historico_pagados_202210_notnulls['FECHA_SINIESTRO']-historico_pagados_202210_notnulls['FECHA DE NACIMIENTO']).dt.days/365.25).astype('int')
-        historico_pagados_corregido = pd.concat([historico_pagados_202210_nulls,historico_pagados_202210_notnulls,historico_pagados_resto])
-        historico_pagados_corregido.to_csv(f'{ruta}Historico Siniestros Pagados Vida {periodo}.txt',sep=';',decimal='.',encoding='latin-1',date_format='%d-%m-%Y',index=False)
-        print(f'{periodo} - {sum(historico_pagados_corregido["EDAD SINIESTRO"].isnull())} registros con edad siniestro nulo')
-        periodo = periodo + (89 if periodo%100==12 else 1)
-        
-        
 def identificador_anonimo(df, campos):
     # Crear un DataFrame con combinaciones únicas de los identificadores
     identificadores_unicos = df[campos].drop_duplicates()

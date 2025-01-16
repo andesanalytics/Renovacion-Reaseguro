@@ -14,7 +14,7 @@ import sys
 from pandas.tseries.offsets import MonthEnd
 from S0_Inputs import archivo_querys, archivo_calculos, archivo_parametros, ruta_extensa
 from S1_Parametros_Calculo import fecha_inicio_mes, fecha_cierre, dias_exposicion, periodo, ruta_input, ruta_output, tdm_mensual, edad_casos_perdidos, archivo_input, archivo_input_ges, contrato, tipo_contrato, separador_input, decimal_input, separador_fechas_input, separador_output, decimal_output, campo_rut_duplicados, archivo_reporte, ruta_pyme, ruta_regiones, ruta_si, ruta_otros, base_iaxis, base_ges, clasificacion_contrato, base_input_siniestros_generales, tipo_calculo, ruta_uso_seguro
-from S2_Funciones import calcula_exposicion, calcula_edad, calculo_fechas_renovacion, escribe_reporta, completa_campo_total, corrige_tasas_ges
+from S2_Funciones import calcula_exposicion, calcula_edad, escribe_reporta, completa_campo_total, corrige_tasas_ges
 
 # Prueba de Ejecucion del codigo
 print(f'El script {__name__} se está ejecutando')
@@ -41,41 +41,6 @@ cumulos_excedente=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='M
 # Tablas de Siniestros
 ocurrencias=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Ocurrencias')
 
-
-
-
-
-# Formas de parsear las fechas que vienen en los archivos txt    
-dateparse_forma1 = lambda x: pd.to_datetime(x, format='%d/%m/%Y',errors='coerce')
-dateparse_forma2 = lambda x: pd.to_datetime(x, format='%d-%m-%Y',errors='coerce')
-dateparse_forma3 = lambda x: pd.to_datetime(x, format='%d-%m-%Y %X',errors='coerce')
-dateparse_forma4 = lambda x: pd.to_datetime(x, format='%Y-%m-%d',errors='coerce')
-
-def revisa_duplicados(df,lista_campos,lista_valores):
-    """ Funcion que revisa que no hayan elementos duplicados dentro de una tabla, dado un set de valores"""
-    df_filtrado=df.copy()
-    # For que va filtrando 1 a 1 los campos y valores establecidos, dentro del dataframe
-    for col,valor in zip(lista_campos,lista_valores):
-        if str(valor) not in ['nan','NaT','NaN']:
-            df_filtrado=df_filtrado[df_filtrado[col]==valor]
-    # Ahora preguntamos si existen duplicados
-    if df_filtrado.shape[0]>1:
-        # print('Existen duplicados en los siguientes parámetros. REVISAR!\n{}\n{}'.format(lista_campos,lista_valores))
-        escribe_reporta(archivo_reporte,'Existen duplicados en los siguientes parámetros. REVISAR!\n{}'.format(df_filtrado))
-        return 1
-    else:
-        return 0
-
-
-def revisa_duplicados_all(df,lista_campos,nombre_tabla=''):
-    if nombre_tabla!='': print('Comienza la revision de duplicados de la tabla {}'.format(nombre_tabla))
-    contador_errores=0
-    df_revisar=df[lista_campos].copy()
-    # Recorremos todos los elementos del df y llamamos a la funcion que revisa duplicados
-    for index, row in df_revisar.iterrows():
-        contador_errores+=revisa_duplicados(df_revisar,lista_campos,list(row))
-    # Mostramos en pantalla la cantidad total de errores
-    if contador_errores>0: escribe_reporta(archivo_reporte,'La revision de duplicados arrojó la siguiente cantidad de errores: {}'.format(contador_errores))
 
 
 def pre_procesamiento(tipo_calculo=tipo_calculo):
@@ -161,7 +126,6 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
             df_ges=df_ges.merge(forma_pago,how='left',on='FORMA_PAGO')
             df_ges['TIPO_POLIZA_LETRA']=df_ges['TIPO_POLIZA']
             df_ges['TIPO_POLIZA']=np.where(df_ges['TIPO_POLIZA_LETRA']=='C',2,1)
-            df_ges['FINI_RENOV_ANUAL'],df_ges['FFIN_RENOV_ANUAL']=calculo_fechas_renovacion(df_ges, 'FECHA_EFECTO', 'FECHA_VENCIMIENTO', 'FECHA_ANULACION','FORMA_PAGO_CODIGO', periodo)
             df_ges['BASE']='GES'
             ########## REVISAR QUE PASA CON I&S
             if tipo_contrato=='Vida':df_ges['IPRIANU']=df_ges['IPRIANU']*df_ges['FACTOR ANUALIZACION']
@@ -202,8 +166,6 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
         # CALCULOS ESPECIFICOS POR CADA CONTRATO
         # CALCULOS DE FECHAS DE INICIO/FIN DE EXPOSICION: SE DIFERENCIAN ENTRE PRIMA UNICA (CESANTIA Y K-FIJO) DEL RESTO
         if (clasificacion_contrato !='Cesantia PU')&(contrato!='K-Fijo'):
-            df_0_1['FINI_RENOV_ANUAL'],df_0_1['FFIN_RENOV_ANUAL']=calculo_fechas_renovacion(df_0_1, 'FECHA_EFECTO', 'FECHA_VENCIMIENTO', 'FECHA_ANULACION','FORMA_PAGO_CODIGO', periodo,0)
-            # df_0_1=df_0_1.drop(columns=['FEC AUX NA'],axis=1)
             df_0_1['FECHA FIN EXP']=np.where(~df_0_1['FECHA_ANULACION'].isnull(),df_0_1['FECHA_ANULACION'],np.where(df_0_1['FECHA_VENCIMIENTO'].isnull(),df_0_1['FFIN_RENOV_ANUAL'],df_0_1['FECHA_VENCIMIENTO']))
         else:
             df_0_1['FEC AUX NA']=0
