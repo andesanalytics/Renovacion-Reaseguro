@@ -50,13 +50,6 @@ diccionario_cumulos ={\
 'RIESGO RETENCION EXCEDENTE':['CUMULO RETENCION EXCEDENTE','PORCENTAJE RETENCION EXCEDENTE','RETENCION EXCEDENTE',cumulos_excedente,'CAPITAL POST LIMITE CONTRATO','CAPITAL RETENIDO POST EXCEDENTE','CUMULO PAGADOS RETENCION EXCEDENTE'],\
 }
 
-# Diccionario de Tramos de Edades
-diccionario_tramos_edades={'Familia Protegida':[0,18,51,66,121],'Full Oncologico':[0,51,66,121],'Oncologico UC':[0,50,60,70,80,121],'Complementario UC':[0,18,50,60,70,80,99]}
-# Diccionario de Tramos de Capital
-diccionario_tramos_capital={'K-Fijo':[0,120,250,400,1000,9999999]}
-# Diccionario de Tramos de Plazo
-diccionario_tramos_plazo={'K-Fijo':[0,25,49,61,73,97,1000]}
-
 
 # * FUNCIONES
 def escribe_reporta(reporte,texto: str) -> None:

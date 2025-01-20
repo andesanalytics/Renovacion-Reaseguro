@@ -10,13 +10,28 @@ import datetime
 import time
 import openpyxl
 import cx_Oracle
+from typing import Any
 from pathlib import Path
 from importlib import reload
-from S0_Inputs import archivo_calculos, archivo_querys, ruta_extensa
+from S0_Loaders import Parameter_Loader
+from S1_Parametros_Calculo_New import carga_parametros
+# from S0_Inputs import archivo_calculos, archivo_querys, ruta_extensa
 
-ruta_salidas='2 Output\\Resultados 2024-12-20\\'
-Path(ruta_salidas).mkdir(parents=True, exist_ok=True)
 
+
+archivos: Parameter_Loader = Parameter_Loader(excel_file='Inputs Archivos Excel.xlsx', open_wb=True, ruta_extensa='')
+archivos.get_reference(reference='archivo_calculos')
+archivos.get_reference(reference='archivo_querys')
+archivos.get_reference(reference='archivo_parametros')
+
+
+parametros = Parameter_Loader(excel_file=archivos.parameters['archivo_calculos'], open_wb=True)
+
+carga_parametros(parametros, archivos)
+# ruta_salidas='2 Output\\Resultados 2024-12-20\\'
+# Path(ruta_salidas).mkdir(parents=True, exist_ok=True)
+
+parametros.parameters
 
 def ejecuta_contratos(ruta_salidas):
     contratos_ejecutar = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios','Desgravamen No Licitado']
@@ -172,8 +187,8 @@ def split_querys(df,parametros_split_filter,ruta_exportar_query,terminacion_arch
 
         
 
-if __name__=='__main__':
+# if __name__=='__main__':
     # Ejecucion de Querys
     # automatizacion_querys()
     # Ejecuta Procesos    
-    ejecuta_contratos(ruta_salidas)
+    # ejecuta_contratos(ruta_salidas)

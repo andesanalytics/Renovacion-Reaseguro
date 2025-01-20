@@ -17,7 +17,8 @@ print(f'El script {__name__} se está ejecutando')
 
 # * Importacion de parametros a tarves del archivo de excel de calculos
 wb = openpyxl.load_workbook(ruta_extensa+archivo_calculos)
-tipo_calculo=wb[next(wb.defined_names['tipo_calculo'].destinations)[0]][next(wb.defined_names['tipo_calculo'].destinations)[1]].value
+wb = openpyxl.load_workbook(ruta_extensa+archivo_calculos)
+tipo_calculo=wb[next(wb.defined_names['tipo_calculo'].destinations)[0]][next(wb.defined_names['tipo_calculo'].destinations)[1]].value # type: ignore
 contrato=wb[next(wb.defined_names['contrato'].destinations)[0]][next(wb.defined_names['contrato'].destinations)[1]].value
 fecha_cierre=wb[next(wb.defined_names['fecha_cierre'].destinations)[0]][next(wb.defined_names['fecha_cierre'].destinations)[1]].value
 tasa_dscto_mensualidades=wb[next(wb.defined_names['tasa_dscto_mensualidades'].destinations)[0]][next(wb.defined_names['tasa_dscto_mensualidades'].destinations)[1]].value
