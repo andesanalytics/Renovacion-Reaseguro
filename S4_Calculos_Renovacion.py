@@ -10,6 +10,7 @@ warnings.simplefilter(action='ignore', category=UserWarning)
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from S0_Loaders import Parameter_Loader
 # Importamos parametros necesarios de scripts previos del modelo
 from S1_Parametros_Calculo import archivo_parametros, tipo_calculo, contrato, ruta_otros
 # Importamos las funciones que requerimos del script de funciones
@@ -18,7 +19,7 @@ from S2_Funciones import asignacion_contratos, asignacion_vigencias, cumulos, re
 from S3_Pre_Procesamiento import pre_procesamiento
 
 
-def calculos_renovacion(ruta_salidas: str) -> None:
+def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, ruta_salidas: str) -> None:
     """Realiza los calculos de asociados a la renovacion de reaseguro para un contrato en específico.
 
     Parameters
@@ -28,11 +29,6 @@ def calculos_renovacion(ruta_salidas: str) -> None:
     """
     
     # * Traemos tablas de parametrizaciones que vamos a usar
-    
-    # Data que contiene matriz de asignacion de contratos de reaseguro por distintas variables (poliza, producto, cobertura, entre otras variables)
-    contrato_cob: pd.DataFrame = pd.read_excel(io=archivo_parametros, sheet_name='Matriz Contrato-Cobertura')
-    # Matriz que permite asignar a que vigencia del contrato está cada registro
-    parametros_contratos: pd.DataFrame = pd.read_excel(io=archivo_parametros, sheet_name='Matriz Vigencias')
     # Matriz para asignar el nombre del producto
     nombre_prods: pd.DataFrame = pd.read_excel(io=archivo_parametros, sheet_name='Nombre Productos Renovacion')
     # Matrices para asignar los campos RAMO_REAS y COB_REAS 
@@ -55,17 +51,17 @@ def calculos_renovacion(ruta_salidas: str) -> None:
     
     # * Calculos de asignacion de contratos de reaseguro
     # Asignamos contrato de reaseguro a los registros
-    df = asignacion_contratos(df, contrato_cob, mantiene_na = 1)
+    df = asignacion_contratos(df, parameters, tables, mantiene_na = 1)
     # Asignamos vigencia del contrato a la que pertenecen los registros
-    df,df_deleted_vigencia = asignacion_vigencias(df,parametros_contratos,tipo_calculo, mantiene_na = 1)
+    df,df_deleted_vigencia = asignacion_vigencias(df, parameters, tables, mantiene_na = 1)
 
     # * Calculos de cumulos asociados a los contratos
     # Cumulo sobre el monto asegurado que proviene de cada persona individualmente
-    df = cumulos(df, 'RIESGO LIMITE INDIVIDUAL')
+    df = cumulos(df, campo_cumulo = 'RIESGO LIMITE INDIVIDUAL')
     # Cumulo sobre el monto asegurado que proviene del contrato en su conjunto
-    df = cumulos(df, 'RIESGO LIMITE CONTRATO')
+    df = cumulos(df, campo_cumulo = 'RIESGO LIMITE CONTRATO')
     # Cumulo sobre el monto asegurado que aplica sobre contratos de excedente
-    df = cumulos(df, 'RIESGO RETENCION EXCEDENTE')
+    df = cumulos(df, campo_cumulo = 'RIESGO RETENCION EXCEDENTE')
 
 
     # * Calculos de capitales cedidos y retenidos

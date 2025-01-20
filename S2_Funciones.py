@@ -8,47 +8,24 @@ import pandas as pd
 import numpy as np
 import time
 import datetime
-from pathlib import Path
 import os
 from zipfile import ZipFile, ZIP_DEFLATED
 import shutil
-from typing import Any, Set, List
+from typing import Any
 from itertools import chain, combinations
-from pandas.tseries.offsets import MonthEnd
-from dateutil.relativedelta import relativedelta
-from S0_Inputs import archivo_querys, archivo_calculos, archivo_parametros, ruta_extensa
-from S1_Parametros_Calculo import fecha_cierre, tipo_contrato, tipo_calculo, contrato, ruta_input, ruta_output, periodo, fecha_inicio_mes, dias_exposicion, separador_input, decimal_input, separador_output, decimal_output, periodo_historico, ruta_historico_output, fecha_cierre_mes_anterior, archivo_reporte, archivo_input, archivo_input_ges, campo_rut_duplicados, tipo_prima, uso_fecha_anulacion_historico, tipo_proceso, ruta_historico_input, ruta_pyme, ruta_recargos, ruta_regiones, ruta_reservas, ruta_si, clasificacion_contrato, periodo_anterior, subcarpeta_compara, separador_compara, decimal_compara, pivotea_df, edad_casos_perdidos, ruta_lob
+from S0_Loaders import Parameter_Loader
+# from S0_Inputs import archivo_parametros, ruta_extensa
+# from S1_Parametros_Calculo import fecha_cierre, tipo_contrato, tipo_calculo, contrato, ruta_input, ruta_output, periodo, fecha_inicio_mes, dias_exposicion, separador_input, decimal_input, separador_output, decimal_output, periodo_historico, ruta_historico_output, fecha_cierre_mes_anterior, archivo_reporte, archivo_input, archivo_input_ges, campo_rut_duplicados, tipo_prima, uso_fecha_anulacion_historico, tipo_proceso, ruta_historico_input, ruta_pyme, ruta_recargos, ruta_regiones, ruta_reservas, ruta_si, clasificacion_contrato, periodo_anterior, subcarpeta_compara, separador_compara, decimal_compara, pivotea_df, edad_casos_perdidos, ruta_lob
 
 # Prueba de Ejecucion del codigo
 print(f'El script {__name__} se está ejecutando')
 
 # * LECTURA DE VARIABLES QUE UTILIZAREMOS EN ALGUNAS DE LAS FUNCIONES
 # * Importamos tablas de parametrizaciones del archivo de parametros de reaseguro
-# Contiene los cumulos individuales por contrato de reaseguro y cobertura
-cumulos_individuales=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Individual')
-# Contiene cumulos que tenga el cotnrato a nivel general (ejemplo: I&S tiene cumulos por zonas)
-cumulos_contrato=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Contrato')
-# Contiene los limites de retencion de excedente
-cumulos_excedente=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Excedente')
-# Contiene las polizas que debo asignar por ocurrencia al reaseguro
-ocurrencias=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Ocurrencias')
 
 
-""" Diccionario para campos de cumulos
-Entregamos variables claves relacionadas con el tipo de cumulo que hacemos:
-0:= Nombre del campo de cumulo total
-1:= Nombre del campo de porcentaje
-2:= Nombre del campo de la retencion o limite
-3:= Tambla de retenciones o limites
-4:= Sobre que campo de montos asegurados hacemos los cumulos
-5:= Nombre del campo resultante de montos asegurados despues de aplicar el limite o retencion
-6:= Nombre del campo de cumulo de pagados (solo aplica para siniestros)
-"""
-diccionario_cumulos ={\
-'RIESGO LIMITE INDIVIDUAL':['CUMULO LIMITE INDIVIDUAL','PORCENTAJE LIMITE INDIVIDUAL','LIMITE INDIVIDUAL',cumulos_individuales,'MONTO ASEGURADO','CAPITAL POST LIMITE INDIVIDUAL','CUMULO PAGADOS LIMITE INDIVIDUAL'],\
-'RIESGO LIMITE CONTRATO':['CUMULO LIMITE CONTRATO','PORCENTAJE LIMITE CONTRATO','LIMITE CONTRATO',cumulos_contrato,'CAPITAL POST LIMITE INDIVIDUAL','CAPITAL POST LIMITE CONTRATO','CUMULO PAGADOS LIMITE CONTRATO'],\
-'RIESGO RETENCION EXCEDENTE':['CUMULO RETENCION EXCEDENTE','PORCENTAJE RETENCION EXCEDENTE','RETENCION EXCEDENTE',cumulos_excedente,'CAPITAL POST LIMITE CONTRATO','CAPITAL RETENIDO POST EXCEDENTE','CUMULO PAGADOS RETENCION EXCEDENTE'],\
-}
+
+
 
 
 # * FUNCIONES
@@ -68,7 +45,7 @@ def escribe_reporta(reporte,texto: str) -> None:
     print(texto)
 
 
-def get_all_subsets(s: set[Any]) -> list[set[Any]]:
+def get_all_subsets(s: list[str]) -> list[set[str]]:
     """
     Genera todos los subconjuntos de un conjunto 's'.
         Parameters:
@@ -81,11 +58,10 @@ def get_all_subsets(s: set[Any]) -> list[set[Any]]:
     # Generate all possible combinations of elements in the list.
     all_combinations = chain.from_iterable(combinations(s_list, r) for r in range(len(s_list) + 1))
     # Convert each combination into a set to obtain subsets.
-    all_subsets = [set(comb) for comb in all_combinations]
-    return all_subsets
+    return [set(comb) for comb in all_combinations]
 
 
-def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parametros: pd.DataFrame,combinacion: list[str],cols_cruce: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parametros: pd.DataFrame,combinacion: set[str],cols_cruce: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Funcion que filtra un dataframe de acuerdo a las caracteristicas de 1 tipo_calculo de reaseguro especificado
         Ademas, tiene la funcion de poder hacer un merge_asof cuando el tipo_calculo asignado para un producto cambia en el tiempo
     Parameters
@@ -150,23 +126,31 @@ def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parame
         else: df_filtrado_con_inicio=pd.DataFrame()
         df_filtrado=pd.concat([df_filtrado_con_inicio,df_filtrado_sin_inicio])
         # Resta el
-        df_a_filtrar=df.loc[df.index.difference(df_filtrado['INDICE'])]
+        df_a_filtrar: pd.DataFrame=df.loc[df.index.difference(df_filtrado['INDICE'])] # type: ignore
         df_filtrado=df_filtrado.drop(columns=['INDICE'])
         tabla_parametros_a_filtrar=tabla_parametros
         return df_filtrado,df_a_filtrar,tabla_parametros_a_filtrar
 
 
-def asignacion_contratos(df: pd.DataFrame,tabla_parametros: pd.DataFrame,mantiene_na: int = 0) -> pd.DataFrame:
+def asignacion_contratos(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Loader,mantiene_na: int = 0) -> pd.DataFrame:
     
     """ Asignacion de todos los contratos de reaseguro, de acuerdo al tipo_calculo seleccionado
         Utiliza la funcion anterior tantas veces como sea necesario hasta filtrar todo lo que el tipo_calculo tiene"""
+        
+    # Contiene las polizas que debo asignar por ocurrencia al reaseguro
+    ocurrencias: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Ocurrencias')
+    tabla_parametros: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Matriz Contrato-Cobertura')
+    contrato: str = parameters.parameters['contrato']
+    tipo_calculo: str = parameters.parameters['tipo_calculo']
+    tipo_prima: str = parameters.parameters['tipo_prima']
+    archivo_reporte: Any = parameters.parameters['archivo_reporte']
     # Definiciones preliminares del proceso
     original_rows=df.shape[0]
     # Solo tomo los registros asociados al proceso que estoy corriendo. Mayor info en el diccionario de contratos
     if tipo_calculo == 'Prima de Reaseguro': tabla_parametros=tabla_parametros[tabla_parametros['CONTRATO REASEGURO']==contrato]
     cols_cruce=['CONTRATO REASEGURO','COBERTURA DEL CONTRATO','INICIO DEL CONTRATO']
-    lista_campos=list(set(list(tabla_parametros.columns)).difference(cols_cruce))
-    lista_combinaciones=get_all_subsets(lista_campos)
+    lista_campos: list[str]=list(set(list(tabla_parametros.columns)).difference(cols_cruce))
+    lista_combinaciones: list[set[str]] = get_all_subsets(lista_campos)
     lista_combinaciones.remove(set())
     df_final=pd.DataFrame()
     escribe_reporta(archivo_reporte,'COMIENZA LA ASIGNACION DE CONTRATOS DE REASEGURO:\n{}'.format(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))))
@@ -190,7 +174,7 @@ def asignacion_contratos(df: pd.DataFrame,tabla_parametros: pd.DataFrame,mantien
     else: return df_final
 
 
-def asignacion_vigencias(df: pd.DataFrame, tabla_parametros: pd.DataFrame, tipo_calculo: str,mantiene_na: int = 0) -> tuple[pd.DataFrame, pd.DataFrame]:
+def asignacion_vigencias(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Loader,mantiene_na: int = 0) -> tuple[pd.DataFrame, pd.DataFrame]:
     """ Para siniestros, asigna a la vigencia a la cual pertenece 
         La asignacion puede ser por tipo_calculo, o por tipo_calculo y cobertura, dandole mayor flexibilidad a la forma de cruzar data
         Lo que tambien lo hace mas eficiente
@@ -212,6 +196,10 @@ def asignacion_vigencias(df: pd.DataFrame, tabla_parametros: pd.DataFrame, tipo_
         _description_
     """
 
+    archivo_reporte: Any = parameters.parameters['archivo_reporte']
+    contrato: str = parameters.parameters['contrato']
+    tipo_calculo: str = parameters.parameters['tipo_calculo']
+    tabla_parametros: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Matriz Vigencias')
     escribe_reporta(archivo_reporte,'COMIENZA LA ASIGNACION DE VIGENCIAS DE LOS CONTRATOS DE REASEGURO:\n{}'.format(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))))
     cols_iniciales=list(df.columns)
     df_nuls=df[df['CONTRATO REASEGURO'].isnull()].copy()
@@ -253,6 +241,7 @@ def asignacion_vigencias(df: pd.DataFrame, tabla_parametros: pd.DataFrame, tipo_
 
 
 def cumulo_riesgo(df: pd.DataFrame,contrato_reaseguro: str,riesgo_cumulo: str,lista_campos: list[str],limite_retencion:Any,tipo_cumulo: str,columna_capital: str) -> pd.DataFrame:
+    tipo_calculo: str = tables
     """ Funcion de calculo de cumulo para un tipo_calculo y riesgo particular """
     # Filtro el df por el tipo_calculo y el riesgo de cumulo correspondiente
     df_filter=df[(df['CONTRATO REASEGURO']==contrato_reaseguro) & (df[tipo_cumulo]==riesgo_cumulo)]
@@ -306,7 +295,7 @@ def cumulo_riesgo(df: pd.DataFrame,contrato_reaseguro: str,riesgo_cumulo: str,li
     return df_final
 
 
-def cumulos(df: pd.DataFrame,campo_cumulo: str) -> pd.DataFrame:
+def cumulos(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Loader,campo_cumulo: str) -> pd.DataFrame:
     """ 
     Funcion de calculo de cumulo para todos los riesgos y contratos dentro del df
     En campo_cumulo tenemos las siguientes alternativas (ver diccionario de cumulos)
@@ -316,6 +305,30 @@ def cumulos(df: pd.DataFrame,campo_cumulo: str) -> pd.DataFrame:
         # RIESGO LIMITE INDIVIDUAL SINIESTROS
         # RIESGO RETENCION EXCEDENTE SINIESTROS
     """
+    # Contiene los cumulos individuales por contrato de reaseguro y cobertura
+    cumulos_individuales = tables.get_table_xlsx(sheet_name = 'Matriz Cumulo Individual')
+    # Contiene cumulos que tenga el cotnrato a nivel general (ejemplo: I&S tiene cumulos por zonas)
+    cumulos_contrato = tables.get_table_xlsx(sheet_name = 'Matriz Cumulo Contrato')
+    # Contiene los limites de retencion de excedente
+    cumulos_excedente = tables.get_table_xlsx(sheet_name = 'Matriz Cumulo Excedente')
+    
+    archivo_reporte: Any = parameters.parameters['archivo_reporte']
+    tipo_calculo: str = parameters.parameters['archivo_reporte']
+    """ Diccionario para campos de cumulos
+    Entregamos variables claves relacionadas con el tipo de cumulo que hacemos:
+    0:= Nombre del campo de cumulo total
+    1:= Nombre del campo de porcentaje
+    2:= Nombre del campo de la retencion o limite
+    3:= Tambla de retenciones o limites
+    4:= Sobre que campo de montos asegurados hacemos los cumulos
+    5:= Nombre del campo resultante de montos asegurados despues de aplicar el limite o retencion
+    6:= Nombre del campo de cumulo de pagados (solo aplica para siniestros)
+    """
+    diccionario_cumulos ={\
+    'RIESGO LIMITE INDIVIDUAL':['CUMULO LIMITE INDIVIDUAL','PORCENTAJE LIMITE INDIVIDUAL','LIMITE INDIVIDUAL',cumulos_individuales,'MONTO ASEGURADO','CAPITAL POST LIMITE INDIVIDUAL','CUMULO PAGADOS LIMITE INDIVIDUAL'],\
+    'RIESGO LIMITE CONTRATO':['CUMULO LIMITE CONTRATO','PORCENTAJE LIMITE CONTRATO','LIMITE CONTRATO',cumulos_contrato,'CAPITAL POST LIMITE INDIVIDUAL','CAPITAL POST LIMITE CONTRATO','CUMULO PAGADOS LIMITE CONTRATO'],\
+    'RIESGO RETENCION EXCEDENTE':['CUMULO RETENCION EXCEDENTE','PORCENTAJE RETENCION EXCEDENTE','RETENCION EXCEDENTE',cumulos_excedente,'CAPITAL POST LIMITE CONTRATO','CAPITAL RETENIDO POST EXCEDENTE','CUMULO PAGADOS RETENCION EXCEDENTE'],\
+    }
     # Va a buscar la tabla de cumulos, de acuerdo al tipo de cumulo que hayamos solicitado realizar
     escribe_reporta(archivo_reporte,'Comienza proceso de calculo de cumulos del tipo {}:\n{}'.format(campo_cumulo,time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))))
     tabla_cumulos=diccionario_cumulos[campo_cumulo][3]
@@ -480,8 +493,10 @@ def recargos(df, calcula_recargos=1):
     return df_final
     
 
-def cruce_left(df_1, df_2, left_on, right_on, suffixes=('_df1', '_df2'), informa_no_cruces=1 ,name = '', ruta_output=ruta_output):
-
+def cruce_left(df_1, df_2, left_on, right_on, parameters: Parameter_Loader, suffixes=('_df1', '_df2'), informa_no_cruces=1 , name = ''):
+    ruta_output: str = parameters.parameters['ruta_output']
+    separador_output: str = parameters.parameters['separador_output']
+    decimal_output: str = parameters.parameters['decimal_output']
     # Realizar merge, especificando las columnas de fusión con left_on y right_on
     # Los sufijos _df1 y _df2 se agregan a los nombres de las columnas para diferenciar las columnas originales de cada DataFrame.
     merged_df = pd.merge(df_1, df_2, how='left', right_on=right_on, left_on=left_on, suffixes=('_df1', '_df2'), indicator='origen')
@@ -573,7 +588,119 @@ def calculo_fechas_renovacion(df,campo_inicio,campo_fin,campo_anulacion,campo_pe
 
 
 
+def automatizacion_querys() -> None:
+    # Parametros de la consulta
+    wb = openpyxl.load_workbook(ruta_extensa + archivo_querys)
+    periodo_inicio=wb[next(wb.defined_names['periodo_inicio'].destinations)[0]][next(wb.defined_names['periodo_inicio'].destinations)[1]].value
+    periodo_fin=wb[next(wb.defined_names['periodo_fin'].destinations)[0]][next(wb.defined_names['periodo_fin'].destinations)[1]].value
+    wb.close()
+    parametros_split=pd.read_excel(io=ruta_extensa + archivo_querys, sheet_name='Split Querys').replace(np.nan, '', regex=True)
+    parametros_querys=pd.read_excel(io=ruta_extensa + archivo_querys, sheet_name='Diccionario Querys').replace(np.nan, '', regex=True)
+    diccionario_querys=parametros_querys.set_index('QUERY').to_dict()
+    
+    for consulta in parametros_querys['QUERY']:
+        aplica=diccionario_querys['APLICA'][consulta]
+        if aplica==1: 
+            ejecuta_query(consulta,periodo_inicio,periodo_fin,diccionario_querys,parametros_split)
+            
+def ejecuta_query(consulta, periodo_inicio, periodo_fin, diccionario_querys, parametros_split, name_file = None):
+    # Tiempo inicial
+    start_time = time.time()
+    
+    # Mostramos en pantalla que query estamos realizando
+    print('Realizando consulta {}'.format(consulta))
+    
+    # Calculos sobre el diccionario de contratos
+    columnas=diccionario_querys['CAMPOS QUERY'][consulta].split(',')
+    cols_date = diccionario_querys['CAMPOS FECHAS'][consulta].split(',') if diccionario_querys['CAMPOS FECHAS'][consulta] else []
+    sistema=diccionario_querys['SISTEMA'][consulta]
+    desfase_meses=diccionario_querys['DESFASE'][consulta]
+    tipo_exportar=diccionario_querys['TIPO EXPORTAR'][consulta]
+    carpeta=diccionario_querys['CARPETA'][consulta]
+    subcarpeta=diccionario_querys['SUBCARPETA'][consulta]
+    tipo_calculo=diccionario_querys['TIPO CALCULO'][consulta]
+    
+    # Calculo de fechas y periodos y otros parametros
+    fecha_inicio=datetime.datetime(int(periodo_inicio/100),periodo_inicio%100,1)
+    fecha_inicio=fecha_inicio-pd.offsets.MonthEnd(desfase_meses+1)+datetime.timedelta(days=1)
+    fecha_fin=datetime.datetime(int(periodo_fin/100),periodo_fin%100,1)
+    fecha_fin=fecha_fin-pd.offsets.MonthEnd(desfase_meses)
+    periodo_fin=fecha_fin.year*100+fecha_fin.month
+    periodo_inicio=fecha_inicio.year*100+fecha_inicio.month
+    if carpeta: ruta_exportar_query=f'{ruta_extensa}1 Input\\{tipo_calculo}\\{subcarpeta}\\{carpeta}\\'
+    else: ruta_exportar_query=f'{ruta_extensa}1 Input\\{tipo_calculo}\\{subcarpeta}\\'
+    # Traemos el archivo de la query
+    with open(ruta_extensa+'0 Querys Automaticas\\'+consulta+'.sql', 'r') as query_txt: query = query_txt.read().replace('\n',' ').replace('fecha_inicio',str(fecha_inicio)[0:10]).replace('fecha_fin',str(fecha_fin)[0:10]).replace('periodo_fin',str(periodo_fin)[0:10]).replace('año_proceso',str(fecha_fin.year)).replace('mes_proceso',str(fecha_fin.month))
 
+    # Conexion sql
+    if sistema=='GES': connection = cx_Oracle.connect(user="USU_BCATALDO", password="SAmu3l.20204*",dsn="prod_zs.santanderseguros.cl.bsch:1526/gesvida",encoding="UTF-8")
+    # if sistema=='GES': connection = cx_Oracle.connect(user="USU_SLABRIN", password="ZS_3Ngreso",dsn="prod_zs.santanderseguros.cl.bsch:1526/gesvida",encoding="UTF-8")
+    # if sistema=='GES': connection = cx_Oracle.connect(user="USU_JTOBAR", password="31415Fermat",dsn="prod_zs.santanderseguros.cl.bsch:1526/gesvida",encoding="UTF-8")
+    # if sistema=='GES': connection = oracledb.connect(user="USU_JTOBAR", password="31415Fermat",dsn="prod_zs.santanderseguros.cl.bsch:1526/gesvida")
+    # if sistema=='GES': connection = cx_Oracle.connect(user="USU_YDAVILA", password="Actuarial7777!",dsn="prod_zs.santanderseguros.cl.bsch:1526/gesvida",encoding="UTF-8")
+    if sistema=='IAXIS':connection = cx_Oracle.connect(user="USR_ZS_BCATALDO", password="SAturn0.20204*",dsn="zsiaxisbd.santanderseguros.cl.bsch:1521/praxis",encoding="UTF-8")    
+    # if sistema=='IAXIS':connection = oracledb.connect(user="USR_ZS_BCATALDO", password="Inicio_01",dsn="zsiaxisbd.santanderseguros.cl.bsch:1521/praxis")    
+    if sistema=='IAXIS TEST':connection = cx_Oracle.connect(user="AXIS_D401", password="F|=fX10JZ{p9",dsn="180.153.43.74:1521/praxis_predb",encoding="UTF-8")    
+    # Lectura de datos y pasamos a dataframe
+    cursor = connection.cursor()
+    print('Ejecutando query')
+    cursor.execute(query)
+    # cursor.execute("select t.aserut rut from altavida.t0058 t where rownum<100")
+    print('Pegando resultados de la query')
+    resultado_query = cursor.fetchall()
+    df=pd.DataFrame(list(resultado_query))
+    if df.empty: 
+        print(f'La consulta - {consulta} - arrojó 0 registros como resultado. REVISAR!')
+        if name_file is not None:
+            archivo_reporte_global=open(f'{ruta_extensa}4 Reportes del Proceso\\Reporte Proceso Cierre {name_file}.txt','a')
+            archivo_reporte_global.write(f'{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))} - Se ejecutó query {consulta}, pero el resultado arrojó una respuesta vacia. REVISAR!\n')
+            archivo_reporte_global.close()
+        return
+    df.columns=columnas
+    # Conversión a fechas de las columnas
+    if len(cols_date)>0:    
+        for col in cols_date:
+            if df[col].dtype==object: df[col]=pd.to_datetime(df[col],format='%Y-%m-%d', errors='coerce')
+    
+    # Exportamos la data
+    print('Exportando datos de la query. La consulta tiene {} registros'.format(df.shape[0]))
+    
+    if tipo_exportar=='historico':terminacion_archivo='.txt' 
+    if (tipo_exportar=='periodo')&(periodo_fin==periodo_inicio):terminacion_archivo=' '+str(periodo_fin)+'.txt'
+    if (tipo_exportar=='periodo')&(periodo_fin!=periodo_inicio):terminacion_archivo=' '+str(periodo_inicio)+'-'+str(periodo_fin)+'.txt'
+    if tipo_exportar=='fecha':terminacion_archivo=' ('+str(datetime.datetime.now())[0:10]+').txt'
+    nombre_archivo_salida=consulta+terminacion_archivo
+    ######## DEBEMOS PEGAR DIRECTAMENTE EN LA RUTA QUE CORRESPONDE
+    ######## ADEMAS, DEBEMOS IMPORTAR EL SEPARADOR Y DECIMAL INPUT DE PARAMETROS PARA QUE COINCIDA CON LO QUE VAMOS A LEER EN EL CALCULO
+    if carpeta:
+        Path(ruta_exportar_query).mkdir(parents=True, exist_ok=True)
+        df.to_csv(ruta_exportar_query+nombre_archivo_salida,sep=';',decimal='.',encoding='UTF-8',date_format='%d-%m-%Y',index=False)
+    parametros_split_filter=parametros_split[parametros_split['QUERY']==consulta]
+    if not parametros_split_filter.empty : split_querys(df,parametros_split_filter,ruta_exportar_query,terminacion_archivo,sistema)
+    # Mido tiempo de ejecucion
+    total_time = round((time.time()-start_time)/60, 2)
+    print('El tiempo total de ejecución fue de %s minutos' % total_time)
+    if name_file is not None:
+        archivo_reporte_global=open(f'{ruta_extensa}4 Reportes del Proceso\\Reporte Proceso Cierre {name_file}.txt','a')
+        archivo_reporte_global.write(f'{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))} - Se ejecutó query {consulta} \n')
+        archivo_reporte_global.close()
+
+
+def split_querys(df,parametros_split_filter,ruta_exportar_query,terminacion_archivo,sistema):
+    df_aux=df.copy()
+    for index,row in parametros_split_filter.iterrows():
+        contrato=row['CONTRATO']
+        productos=list(map(int,row['PRODUCTOS CONTRATO'].split('-'))) if row['PRODUCTOS CONTRATO'] else ''
+        polizas=list(map(int,row['POLIZAS CONTRATO'].split('-'))) if row['POLIZAS CONTRATO'] else ''
+        tipo_condicion=row['TIPO CONDICION']
+        aplica_split=row['APLICA']
+        cond_prods=pd.Series(np.full(df_aux.shape[0],True)) if not productos else df_aux['PRODUCTO'].isin(productos) if tipo_condicion==1 else ~df_aux['PRODUCTO'].isin(productos)
+        cond_pols=pd.Series(np.full(df_aux.shape[0],True)) if not polizas else df_aux['POLIZA'].isin(polizas) if tipo_condicion==1 else ~df_aux['POLIZA'].isin(polizas)
+        df_export=df_aux[cond_prods&cond_pols].copy()
+        df_aux=df_aux.loc[df_aux.index.difference(df_export.index)].reset_index(drop=True)
+        terminacion_ges=' GES' if sistema=='GES' else ''
+        Path(f'{ruta_exportar_query}{contrato}\\').mkdir(parents=True, exist_ok=True)
+        if (not df_export.empty)&(aplica_split==1): df_export.to_csv(f'{ruta_exportar_query}{contrato}\\Expuestos {contrato}{terminacion_ges}{terminacion_archivo}',sep=';',decimal='.',encoding='UTF-8',date_format='%d-%m-%Y',index=False)
 
 
 
