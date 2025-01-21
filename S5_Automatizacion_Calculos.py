@@ -24,8 +24,8 @@ ruta_salidas: str = '2 Output\\Resultados Validacion V1\\'
 Path(ruta_salidas).mkdir(parents=True, exist_ok=True)
 contratos_ejecutar: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios','Desgravamen No Licitado']
 contratos_consolidar_catxl: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios','Desgravamen No Licitado']
-contratos_ejecutar: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios']
-contratos_consolidar_catxl: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios']
+# contratos_ejecutar: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios']
+# contratos_consolidar_catxl: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios']
 
 
 if __name__=='__main__':
@@ -49,14 +49,17 @@ if __name__=='__main__':
         parameters: Parameter_Loader = Parameter_Loader(excel_file=files.parameters['archivo_calculos'], open_wb=True)
         carga_parametros(files, parameters)
         calculos_renovacion(parameters, tables, ruta_salidas)
+    print('Comienza el proceso de consolidación de reportes')
     df_catxl_uso_interno = pd.DataFrame()
     df_catxl_reaseguradores= pd.DataFrame()
     for contrato_consolidar in contratos_consolidar_catxl:
-        df_uso_interno: pd.DataFrame = pd.read_csv(f'{ruta_salidas}Detalle Licitacion {contrato_consolidar} Uso Interno.txt.zip',sep=';',decimal='.',encoding='latin-1',low_memory=False)
-        df_reaseguradores: pd.DataFrame = pd.read_csv(f'{ruta_salidas}Detalle Licitacion {contrato_consolidar} Reaseguradores.txt.zip',sep=';',decimal='.',encoding='latin-1',low_memory=False)
+        print(f'Leyendo data del contrato {contrato_consolidar}')
+        df_uso_interno: pd.DataFrame = pd.read_csv(f'{ruta_salidas}Detalle Renovacion {contrato_consolidar} Uso Interno.txt.zip',sep=';',decimal='.',encoding='latin-1',low_memory=False)
+        df_reaseguradores: pd.DataFrame = pd.read_csv(f'{ruta_salidas}Detalle Renovacion {contrato_consolidar} Reaseguradores.txt.zip',sep=';',decimal='.',encoding='latin-1',low_memory=False)
         df_catxl_uso_interno = pd.concat([df_catxl_uso_interno,df_uso_interno])
         df_catxl_reaseguradores = pd.concat([df_catxl_reaseguradores,df_reaseguradores])
-    df_catxl_uso_interno.to_csv(f'{ruta_salidas}Detalle Licitacion Cat XL Uso Interno.txt.zip',sep=';',decimal='.',date_format='%d-%m-%Y',index=False)
-    df_catxl_reaseguradores.to_csv(f'{ruta_salidas}Detalle Licitacion Cat XL Reaseguradores.txt.zip',sep=';',decimal='.',date_format='%d-%m-%Y',index=False)
+    print('Exportamos Reportes Finales!')
+    df_catxl_uso_interno.to_csv(f'{ruta_salidas}Detalle Renovacion Cat XL Uso Interno.txt.zip',sep=';',decimal='.',date_format='%d-%m-%Y',index=False)
+    df_catxl_reaseguradores.to_csv(f'{ruta_salidas}Detalle Renovacion Cat XL Reaseguradores.txt.zip',sep=';',decimal='.',date_format='%d-%m-%Y',index=False)
 
 

@@ -233,15 +233,15 @@ def asignacion_vigencias(df: pd.DataFrame, parameters: Parameter_Loader, tables:
 
 def cumulo_riesgo(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Loader, riesgo_cumulo: str, campos_str: str, limite_retencion:Any,tipo_cumulo: str,columna_capital: str) -> pd.DataFrame:
     tipo_calculo: str = parameters.parameters['tipo_calculo']
-    contrato_reaseguro: str = parameters.parameters['contrato_reaseguro']
+    contrato: str = parameters.parameters['contrato']
     archivo_reporte: Any = parameters.parameters['archivo_reporte']
     ruta_extensa: str = parameters.ruta_extensa
     """ Funcion de calculo de cumulo para un tipo_calculo y riesgo particular """
     # Filtro el df por el tipo_calculo y el riesgo de cumulo correspondiente
-    df_filter=df[(df['CONTRATO REASEGURO']==contrato_reaseguro) & (df[tipo_cumulo]==riesgo_cumulo)]
+    df_filter=df[(df['CONTRATO REASEGURO']==contrato) & (df[tipo_cumulo]==riesgo_cumulo)]
     # Si el df filtrado es vacio (pensado en que la funcion cumulos recorre todos los registros de su tabla de cumulos), entonces crea en el df las columnas que se crearán en caso de no ser vacio
     if df_filter.empty:
-        #print('dataframe vacio para tipo_calculo de reaseguro {} y riesgo cumulo {}'.format(contrato_reaseguro,riesgo_cumulo))
+        #print('dataframe vacio para tipo_calculo de reaseguro {} y riesgo cumulo {}'.format(contrato,riesgo_cumulo))
         return df_filter
     # Hacemos groupby por la lista de campos que entregamos. Tomamos como agregacion la columna de cumulos que indicamos en los parametros
     lista_campos: list[str] = campos_str.split(',')
@@ -251,7 +251,7 @@ def cumulo_riesgo(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parame
     else:
         for campo in lista_campos:
             if campo not in df.columns:
-                escribe_reporta(archivo_reporte,'El campo {} para hacer cumulo no se encuentra dentro del dataframe, para tipo_calculo de reaseguro {} y riesgo cumulo {}'.format(campo,contrato_reaseguro,riesgo_cumulo))
+                escribe_reporta(archivo_reporte,'El campo {} para hacer cumulo no se encuentra dentro del dataframe, para tipo_calculo de reaseguro {} y riesgo cumulo {}'.format(campo,contrato,riesgo_cumulo))
     # Calculo de retencion: 
     # Si la retencion no es igual para todos registros, se debe inrgesar el nombre de la tabla que parametriza aquello
     if isinstance(limite_retencion, str):
@@ -259,7 +259,7 @@ def cumulo_riesgo(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parame
         try:
             tabla_cumulos: pd.DataFrame = tables.get_table_xlsx(sheet_name = limite_retencion)
         except:
-            escribe_reporta(archivo_reporte,f'la tabla de retenciones especificada no existe para el tipo_calculo de reaseguro {contrato_reaseguro} y riesgo cumulo {riesgo_cumulo}')
+            escribe_reporta(archivo_reporte,f'la tabla de retenciones especificada no existe para el tipo_calculo de reaseguro {contrato} y riesgo cumulo {riesgo_cumulo}')
         # Revisa el nombre de los campos que tiene, y quita el que contiene el limite
         campos = list(tabla_cumulos.columns)
         campos.remove('LIMITE O RETENCION')
@@ -279,9 +279,9 @@ def cumulo_riesgo(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parame
     # Finalmente, cruza el df original y filtrado con el df agrupado
     df_final=df_filter.merge(df_grouped,how='inner', left_on=lista_campos, right_on=lista_campos,suffixes=['','_x']) # type: ignore
     if df_final.shape[0] > df_filter.shape[0]:
-        escribe_reporta(archivo_reporte,'la tabla agrupada con los limites y retenciones cruzó más registros que el df original, para el tipo_calculo de reaseguro {} y riesgo cumulo {}'.format(contrato_reaseguro,riesgo_cumulo))
+        escribe_reporta(archivo_reporte,'la tabla agrupada con los limites y retenciones cruzó más registros que el df original, para el tipo_calculo de reaseguro {} y riesgo cumulo {}'.format(contrato,riesgo_cumulo))
     elif df_final.shape[0] < df_filter.shape[0]:
-        escribe_reporta(archivo_reporte,'la tabla agrupada con los limites y retenciones cruzó menos registros que el df original, para el tipo_calculo de reaseguro {} y riesgo cumulo {}'.format(contrato_reaseguro,riesgo_cumulo))
+        escribe_reporta(archivo_reporte,'la tabla agrupada con los limites y retenciones cruzó menos registros que el df original, para el tipo_calculo de reaseguro {} y riesgo cumulo {}'.format(contrato,riesgo_cumulo))
     # Columna que calcula el capital posterior a establecer limite o retencion, segun corresponda
     if 'Siniestro' in tipo_calculo: df_final['PORCENTAJE']=np.where(df_final['ESTADO SINIESTRO']=='PAGADO',df_final['PORCENTAJE PAGADOS'],df_final['PORCENTAJE PENDIENTES'])
     df_final['CAPITAL POSTERIOR']=df_final['PORCENTAJE']*df_final[columna_capital]
@@ -307,7 +307,7 @@ def cumulos(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Lo
     cumulos_excedente = tables.get_table_xlsx(sheet_name = 'Matriz Cumulo Excedente')
     
     archivo_reporte: Any = parameters.parameters['archivo_reporte']
-    tipo_calculo: str = parameters.parameters['archivo_reporte']
+    tipo_calculo: str = parameters.parameters['tipo_calculo']
     """ Diccionario para campos de cumulos
     Entregamos variables claves relacionadas con el tipo de cumulo que hacemos:
     0:= Nombre del campo de cumulo total
@@ -351,9 +351,8 @@ def cumulos(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Lo
     return df_inicial
 
 
-def calcula_edad(rut_series,fec_nac_series: pd.Series[pd.Timestamp],fec_corte_series,edad_perdidos,edad_tope,parameters:Parameter_Loader,reporta_issues = 0, edad_inf = 0, aplica_edad_prom_cartera = 0):
+def calcula_edad(rut_series,fec_nac_series,fec_corte_series,edad_perdidos,edad_tope,archivo_reporte, reporta_issues = 0, edad_inf = 0, aplica_edad_prom_cartera = 0):
     """ Funcion de calculo de edad """
-    archivo_reporte: Any = parameters.parameters['archivo_reporte']
     df_ruts=pd.DataFrame({'RUT':rut_series,'FEC_NAC':fec_nac_series})
     df_fechas_nac=pd.DataFrame({'RUT':rut_series,'FEC_NAC':fec_nac_series}).groupby(['RUT']).min().reset_index()
     df_ruts_final=df_ruts.merge(df_fechas_nac,how='left',on='RUT')

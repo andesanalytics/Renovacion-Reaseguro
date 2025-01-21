@@ -19,7 +19,7 @@ class Parameter_Loader:
     def get_table_txt(self, file_path: str, decimal: str, separador: str, campos_fecha:Any = '') -> Any:
         # Carga la tabla solo si no ha sido cargada antes
         if file_path not in self.parameters:
-            self.parameters[file_path]: pd.DataFrame = pd.read_csv(file_path, decimal=decimal, sep=separador, date_format='%d-%m-%Y', parse_dates=campos_fecha, index=False, encoding='latin-1',low_memory=False) # type: ignore
+            self.parameters[file_path]: pd.DataFrame = pd.read_csv(file_path, decimal=decimal, sep=separador, date_format='%d-%m-%Y', parse_dates=campos_fecha, encoding='latin-1',low_memory=False) # type: ignore
             print(f'Se ha cargado la tabla {file_path}')
         return self.parameters[file_path]
     
