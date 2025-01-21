@@ -9,24 +9,16 @@ import numpy as np
 import time
 import datetime
 import os
-from zipfile import ZipFile, ZIP_DEFLATED
+import cx_Oracle
 import shutil
-from typing import Any
+from zipfile import ZipFile, ZIP_DEFLATED
+from pathlib import Path
+from typing import Any, Hashable
 from itertools import chain, combinations
 from S0_Loaders import Parameter_Loader
-# from S0_Inputs import archivo_parametros, ruta_extensa
-# from S1_Parametros_Calculo import fecha_cierre, tipo_contrato, tipo_calculo, contrato, ruta_input, ruta_output, periodo, fecha_inicio_mes, dias_exposicion, separador_input, decimal_input, separador_output, decimal_output, periodo_historico, ruta_historico_output, fecha_cierre_mes_anterior, archivo_reporte, archivo_input, archivo_input_ges, campo_rut_duplicados, tipo_prima, uso_fecha_anulacion_historico, tipo_proceso, ruta_historico_input, ruta_pyme, ruta_recargos, ruta_regiones, ruta_reservas, ruta_si, clasificacion_contrato, periodo_anterior, subcarpeta_compara, separador_compara, decimal_compara, pivotea_df, edad_casos_perdidos, ruta_lob
 
 # Prueba de Ejecucion del codigo
 print(f'El script {__name__} se está ejecutando')
-
-# * LECTURA DE VARIABLES QUE UTILIZAREMOS EN ALGUNAS DE LAS FUNCIONES
-# * Importamos tablas de parametrizaciones del archivo de parametros de reaseguro
-
-
-
-
-
 
 # * FUNCIONES
 def escribe_reporta(reporte,texto: str) -> None:
@@ -94,11 +86,10 @@ def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parame
     # Tabla auxiliar que tendrá filtrado lo que vamos a cruzar
     tabla_parametros_filtrada: pd.DataFrame=tabla_parametros.copy()
     # Combinacion de campos que vamos a utilizar para cruzar
-    combinacion=list(combinacion)
+    combinacion_list = list(combinacion)
     # Campos que no vamos a cruzar
-    combi_out=list(set(lista_campos).difference(combinacion))
-    
-    tabla_parametros_filtrada.dropna(subset=combinacion,inplace=True)
+    combi_out=list(set(lista_campos).difference(combinacion_list))
+    tabla_parametros_filtrada = tabla_parametros_filtrada.dropna(subset=combinacion_list) # type: ignore
     tabla_parametros_quitar: pd.DataFrame=tabla_parametros_filtrada.dropna(subset=combi_out,how='all')
     tabla_parametros_filtrada=tabla_parametros_filtrada.loc[tabla_parametros_filtrada.index.difference(tabla_parametros_quitar.index)].reset_index(drop=True)
     if tabla_parametros_filtrada.empty: return pd.DataFrame(),df,tabla_parametros
@@ -106,10 +97,10 @@ def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parame
         tpf_sin_inicio: pd.DataFrame=tabla_parametros_filtrada[tabla_parametros_filtrada['INICIO DEL CONTRATO'].isnull()].copy()
         tpf_con_inicio: pd.DataFrame=tabla_parametros_filtrada[~tabla_parametros_filtrada['INICIO DEL CONTRATO'].isnull()].copy()
         # Pregunta si necesitamos hacer un merge o merge_asof, en caso de tener cambio de contratos en el tiempo
-        if not tpf_sin_inicio.empty: df_filtrado_sin_inicio=df_filtrado.merge(tpf_sin_inicio[combinacion+cols_cruce],how='inner',on=combinacion)
+        if not tpf_sin_inicio.empty: df_filtrado_sin_inicio=df_filtrado.merge(tpf_sin_inicio[combinacion_list+cols_cruce],how='inner',on=combinacion_list)
         else: df_filtrado_sin_inicio=pd.DataFrame()
         if not tpf_con_inicio.empty:
-            tpf_con_inicio_unicos=tpf_con_inicio[combinacion].drop_duplicates()
+            tpf_con_inicio_unicos=tpf_con_inicio[combinacion_list].drop_duplicates()
             df_filtrado_con_inicio=pd.DataFrame()
             # Recorre el dataframe para cada registro de filtro que deba hacer, para ir concatenandolos en el df que necesitamos
             for index, row in tpf_con_inicio_unicos.iterrows():
@@ -117,7 +108,7 @@ def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parame
                 lista_valores=list(row)
                 df_filtrado_con_inicio_aux=df_filtrado.copy()
                 tpf_con_inicio_filtrada=tpf_con_inicio.copy()
-                for col,valor in zip(combinacion,lista_valores):
+                for col,valor in zip(combinacion_list,lista_valores):
                     df_filtrado_con_inicio_aux=df_filtrado_con_inicio_aux[df_filtrado_con_inicio_aux[col]==valor]
                     tpf_con_inicio_filtrada=tpf_con_inicio_filtrada[tpf_con_inicio_filtrada[col]==valor]
                 df_filtrado_con_inicio_aux=pd.merge_asof(df_filtrado_con_inicio_aux.sort_values('FECHA CRUCE VIGENCIAS'),tpf_con_inicio_filtrada[cols_cruce].sort_values('INICIO DEL CONTRATO'),left_on='FECHA CRUCE VIGENCIAS',right_on='INICIO DEL CONTRATO')
@@ -210,9 +201,9 @@ def asignacion_vigencias(df: pd.DataFrame, parameters: Parameter_Loader, tables:
         cobs_reaseguro=tabla_parametros[tabla_parametros['CONTRATO REASEGURO']==contrato]['COBERTURA DEL CONTRATO'].unique()
         # Ciclo que recorre cada uno de los elementos de la losta para ir filtrando y asignado vigencias
         for cobertura_reaseg in cobs_reaseguro:
-            df_filtrado=df[df['COBERTURA DEL CONTRATO']==cobertura_reaseg]
-            tabla_filtrada=tabla_parametros[tabla_parametros['COBERTURA DEL CONTRATO']==cobertura_reaseg]
-            df_final=pd.concat([df_final,pd.merge_asof(df_filtrado.sort_values('FECHA CRUCE VIGENCIAS'),tabla_filtrada.sort_values('FECHA INICIO CONTRATO').drop(['CONTRATO REASEGURO','COBERTURA DEL CONTRATO'],axis=1),left_on=['FECHA CRUCE VIGENCIAS'],right_on='FECHA INICIO CONTRATO')],axis=0)
+            df_filtrado: pd.DataFrame = df[df['COBERTURA DEL CONTRATO']==cobertura_reaseg]
+            tabla_filtrada: pd.DataFrame = tabla_parametros[tabla_parametros['COBERTURA DEL CONTRATO']==cobertura_reaseg]
+            df_final: pd.DataFrame = pd.concat(objs=[df_final,pd.merge_asof(df_filtrado.sort_values('FECHA CRUCE VIGENCIAS'),tabla_filtrada.sort_values('FECHA INICIO CONTRATO').drop(['CONTRATO REASEGURO','COBERTURA DEL CONTRATO'],axis=1),left_on=['FECHA CRUCE VIGENCIAS'],right_on='FECHA INICIO CONTRATO')],axis=0) # type: ignore
     if tipo_calculo == 'Siniestros de Reaseguro':
         contratos_reaseguro = df['CONTRATO REASEGURO'].unique()
         for contrato_reaseg in contratos_reaseguro:
@@ -223,7 +214,7 @@ def asignacion_vigencias(df: pd.DataFrame, parameters: Parameter_Loader, tables:
             for cobertura_reaseg in cobs_reaseguro:
                 df_filtrado=df_contrato[(df_contrato['COBERTURA DEL CONTRATO']==cobertura_reaseg)]
                 tabla_filtrada=tabla_parametros_contrato[tabla_parametros_contrato['COBERTURA DEL CONTRATO']==cobertura_reaseg]
-                df_final=pd.concat([df_final,pd.merge_asof(df_filtrado.sort_values('FECHA CRUCE VIGENCIAS'),tabla_filtrada.sort_values('FECHA INICIO CONTRATO').drop(['CONTRATO REASEGURO','COBERTURA DEL CONTRATO'],axis=1),left_on=['FECHA CRUCE VIGENCIAS'],right_on='FECHA INICIO CONTRATO')],axis=0)
+                df_final=pd.concat([df_final,pd.merge_asof(df_filtrado.sort_values('FECHA CRUCE VIGENCIAS'),tabla_filtrada.sort_values('FECHA INICIO CONTRATO').drop(['CONTRATO REASEGURO','COBERTURA DEL CONTRATO'],axis=1),left_on=['FECHA CRUCE VIGENCIAS'],right_on='FECHA INICIO CONTRATO')],axis=0) # type: ignore
     
     # Eliminamos registros con fecha posterior o anterior a los contratos de vigencia establecidos
     cols_finales=list(df_final.columns)
@@ -240,8 +231,11 @@ def asignacion_vigencias(df: pd.DataFrame, parameters: Parameter_Loader, tables:
     else: return df_final_02,df_deleted
 
 
-def cumulo_riesgo(df: pd.DataFrame,contrato_reaseguro: str,riesgo_cumulo: str,lista_campos: list[str],limite_retencion:Any,tipo_cumulo: str,columna_capital: str) -> pd.DataFrame:
-    tipo_calculo: str = tables
+def cumulo_riesgo(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Loader, riesgo_cumulo: str, campos_str: str, limite_retencion:Any,tipo_cumulo: str,columna_capital: str) -> pd.DataFrame:
+    tipo_calculo: str = parameters.parameters['tipo_calculo']
+    contrato_reaseguro: str = parameters.parameters['contrato_reaseguro']
+    archivo_reporte: Any = parameters.parameters['archivo_reporte']
+    ruta_extensa: str = parameters.ruta_extensa
     """ Funcion de calculo de cumulo para un tipo_calculo y riesgo particular """
     # Filtro el df por el tipo_calculo y el riesgo de cumulo correspondiente
     df_filter=df[(df['CONTRATO REASEGURO']==contrato_reaseguro) & (df[tipo_cumulo]==riesgo_cumulo)]
@@ -250,7 +244,7 @@ def cumulo_riesgo(df: pd.DataFrame,contrato_reaseguro: str,riesgo_cumulo: str,li
         #print('dataframe vacio para tipo_calculo de reaseguro {} y riesgo cumulo {}'.format(contrato_reaseguro,riesgo_cumulo))
         return df_filter
     # Hacemos groupby por la lista de campos que entregamos. Tomamos como agregacion la columna de cumulos que indicamos en los parametros
-    lista_campos=lista_campos.split(',')
+    lista_campos: list[str] = campos_str.split(',')
     if sum([0 if x in df.columns else 1 for x in lista_campos])==0:
         df_grouped = df_filter.groupby(lista_campos)[columna_capital].sum().reset_index().rename(columns={columna_capital:'CUMULO'})
         if 'Siniestro' in tipo_calculo: df_grouped_pagados=df_filter[df_filter['ESTADO SINIESTRO']=='PAGADO'].groupby(lista_campos)[columna_capital].sum().reset_index().rename(columns={columna_capital:'CUMULO_PAGADOS'})
@@ -263,14 +257,14 @@ def cumulo_riesgo(df: pd.DataFrame,contrato_reaseguro: str,riesgo_cumulo: str,li
     if isinstance(limite_retencion, str):
         # Busca la tabla del nombre que pusimos dentro de la tabla de cumulos
         try:
-            tabla_cumulos=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name=limite_retencion)
+            tabla_cumulos: pd.DataFrame = tables.get_table_xlsx(sheet_name = limite_retencion)
         except:
-            escribe_reporta(archivo_reporte,'la tabla de retenciones especificada no existe para el tipo_calculo de reaseguro {} y riesgo cumulo {}'.format(contrato_reaseguro,riesgo_cumulo))
+            escribe_reporta(archivo_reporte,f'la tabla de retenciones especificada no existe para el tipo_calculo de reaseguro {contrato_reaseguro} y riesgo cumulo {riesgo_cumulo}')
         # Revisa el nombre de los campos que tiene, y quita el que contiene el limite
-        campos=list(tabla_cumulos.columns)
+        campos = list(tabla_cumulos.columns)
         campos.remove('LIMITE O RETENCION')
         # Cruza con el df de acuerdo al resto de campos dentro de la tabla
-        df_grouped=df_grouped.merge(tabla_cumulos,how='inner', left_on=campos, right_on=campos,suffixes=['','_x'])
+        df_grouped=df_grouped.merge(tabla_cumulos,how='inner', left_on=campos, right_on=campos,suffixes=['','_x']) # type: ignore
     else:
     # Si la retencion es igual para todos los registros, rellena con ese valor dentro del df agrupado
         df_grouped['LIMITE O RETENCION']=limite_retencion
@@ -283,7 +277,7 @@ def cumulo_riesgo(df: pd.DataFrame,contrato_reaseguro: str,riesgo_cumulo: str,li
         df_grouped['PORCENTAJE PAGADOS'] = np.where(df_grouped['CUMULO_PAGADOS'] == 0, 0, np.minimum( 1, df_grouped['LIMITE O RETENCION'] / df_grouped['CUMULO_PAGADOS']))
         df_grouped['PORCENTAJE PENDIENTES'] = np.where(df_grouped['CUMULO_PAGADOS'] == df_grouped['CUMULO'], 0, np.minimum( 1, ( df_grouped['LIMITE O RETENCION'] - np.minimum( df_grouped['LIMITE O RETENCION'], df_grouped['CUMULO_PAGADOS'])) / ( df_grouped['CUMULO'] - df_grouped['CUMULO_PAGADOS'])))
     # Finalmente, cruza el df original y filtrado con el df agrupado
-    df_final=df_filter.merge(df_grouped,how='inner', left_on=lista_campos, right_on=lista_campos,suffixes=['','_x'])
+    df_final=df_filter.merge(df_grouped,how='inner', left_on=lista_campos, right_on=lista_campos,suffixes=['','_x']) # type: ignore
     if df_final.shape[0] > df_filter.shape[0]:
         escribe_reporta(archivo_reporte,'la tabla agrupada con los limites y retenciones cruzó más registros que el df original, para el tipo_calculo de reaseguro {} y riesgo cumulo {}'.format(contrato_reaseguro,riesgo_cumulo))
     elif df_final.shape[0] < df_filter.shape[0]:
@@ -349,7 +343,7 @@ def cumulos(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Lo
     for index, row in tabla_cumulos.iterrows():
         # Aplicamos la funcion de cumulo_riesgo para cada tipo_calculo-cumulo que exista en la tabla de cumulos
         # print(row['CONTRATO REASEGURO']+'-'+row[campo_cumulo])
-        df_agregar=cumulo_riesgo(df,row['CONTRATO REASEGURO'],row[campo_cumulo],row['CAMPOS A ACUMULAR'],row['LIMITE O RETENCION'],campo_cumulo,diccionario_cumulos[campo_cumulo][4])
+        df_agregar=cumulo_riesgo(df,parameters, tables,row[campo_cumulo],row['CAMPOS A ACUMULAR'],row['LIMITE O RETENCION'],campo_cumulo,diccionario_cumulos[campo_cumulo][4])
         # Concatenamos con el df inicial
         df_inicial=pd.concat([df_inicial,df_agregar],axis=0)
     # Renombramos las variables, para que tengan un significado asociado al tipo de cumulo aplicado (ver diccionario de cumulos)
@@ -357,8 +351,9 @@ def cumulos(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Lo
     return df_inicial
 
 
-def calcula_edad(rut_series,fec_nac_series,fec_corte_series,edad_perdidos,edad_tope,reporta_issues = 0, edad_inf = 0, aplica_edad_prom_cartera = 0):
+def calcula_edad(rut_series,fec_nac_series: pd.Series[pd.Timestamp],fec_corte_series,edad_perdidos,edad_tope,parameters:Parameter_Loader,reporta_issues = 0, edad_inf = 0, aplica_edad_prom_cartera = 0):
     """ Funcion de calculo de edad """
+    archivo_reporte: Any = parameters.parameters['archivo_reporte']
     df_ruts=pd.DataFrame({'RUT':rut_series,'FEC_NAC':fec_nac_series})
     df_fechas_nac=pd.DataFrame({'RUT':rut_series,'FEC_NAC':fec_nac_series}).groupby(['RUT']).min().reset_index()
     df_ruts_final=df_ruts.merge(df_fechas_nac,how='left',on='RUT')
@@ -366,7 +361,7 @@ def calcula_edad(rut_series,fec_nac_series,fec_corte_series,edad_perdidos,edad_t
     edad_malas=np.where((fec_nac_series.isnull())|(fec_nac_series==datetime.datetime(1900,1,1)),1,0)
     serie_year=pd.DatetimeIndex(fec_nac_series).year
     serie_monthday=pd.DatetimeIndex(fec_nac_series).month*100+pd.DatetimeIndex(fec_nac_series).day
-    if type(fec_corte_series)==pd.core.series.Series: 
+    if type(fec_corte_series)==pd.core.series.Series:  # type: ignore
         fec_corte_year=pd.DatetimeIndex(fec_corte_series).year
         fec_corte_monthday=pd.DatetimeIndex(fec_corte_series).month*100+pd.DatetimeIndex(fec_corte_series).day
     else:
@@ -402,7 +397,7 @@ def calcula_exposicion(df,campo_inicio,campo_fin,exp_days,fec_bop,fec_eop):
     return serie_exposicion
 
 
-def completa_campo(df,campo_rellenar,campos_agrupar,campo_cero=False):
+def completa_campo(df,campo_rellenar,campos_agrupar,parameters: Parameter_Loader,campo_cero=False):
     # if campo_cero==True: df_sin_valores,df_con_valores=df[df[campo_rellenar].isnull()].copy(),df[~df[campo_rellenar].isnull()].copy()
     # elif campo_cero==False: df_sin_valores,df_con_valores=df[(df[campo_rellenar].isnull())|(df[campo_rellenar]==0)].copy(),df[(~df[campo_rellenar].isnull())&(df[campo_rellenar]>0)].copy()
     df_sin_valores,df_con_valores=df[df[campo_rellenar].isnull()].copy(),df[~df[campo_rellenar].isnull()].copy()
@@ -410,11 +405,11 @@ def completa_campo(df,campo_rellenar,campos_agrupar,campo_cero=False):
     df_agrupado=df_con_valores[[campo_rellenar]+campos_agrupar].groupby(campos_agrupar, dropna=False).agg('mean').reset_index()
     df_sin_valores=df_sin_valores.merge(df_agrupado,how='left',on=campos_agrupar)
     df_final=pd.concat([df_con_valores,df_sin_valores],axis=0)
-    df_agrupado.to_csv(ruta_output+'0. Tabla Agrup '+campo_rellenar+' campos '+'_'.join(campos_agrupar)+'.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
+    df_agrupado.to_csv(parameters.parameters['ruta_output']+'0. Tabla Agrup '+campo_rellenar+' campos '+'_'.join(campos_agrupar)+'.csv',sep=parameters.parameters['separador_output'],decimal=parameters.parameters['decimal_output'],date_format='%d-%m-%Y',index=False)
     return df_final
     
 
-def completa_campo_total(df,campo_completar,listas_campos_agrupar,campo_cero=False):
+def completa_campo_total(df,campo_completar,listas_campos_agrupar, parameters: Parameter_Loader,campo_cero=False):
     df_aux=df.copy()
     if campo_cero==True: 
         promedio_general=df_aux[~df_aux[campo_completar].isnull()][campo_completar].mean()
@@ -423,13 +418,14 @@ def completa_campo_total(df,campo_completar,listas_campos_agrupar,campo_cero=Fal
         promedio_general=df_aux[(~df[campo_completar].isnull())&(df_aux[campo_completar]>0)][campo_completar].mean()
         df_aux[campo_completar+'_FINAL']=np.where(df_aux[campo_completar]>0,df_aux[campo_completar],np.nan)
     for lista in listas_campos_agrupar:
-        df_aux=completa_campo(df_aux,campo_completar+'_FINAL',lista,campo_cero)
+        df_aux=completa_campo(df_aux,campo_completar+'_FINAL',lista,parameters,campo_cero)
     df_aux[campo_completar+'_FINAL']=df_aux[campo_completar+'_FINAL'].fillna(promedio_general)
     return df_aux
 
         
-def corrige_tasas_ges(df_ges_0_0):
+def corrige_tasas_ges(df_ges_0_0, parameters: Parameter_Loader) -> pd.DataFrame:
     # Defino registros duplicados y no duplicados
+    campo_rut_duplicados: str = parameters.parameters['campo_rut_duplicados']
     duplicados=df_ges_0_0.loc[df_ges_0_0.duplicated(subset=[campo_rut_duplicados,'POLIZA','CERTIFICADO','NRO_OPERACION','COD_COB'],keep=False)].copy()
     no_duplicados_ges=df_ges_0_0[~df_ges_0_0.index.isin(duplicados.index)].copy()
     # Creo las tasas agrupadas de los registros duplicados (tomando la tasa promedio)
@@ -444,7 +440,12 @@ def corrige_tasas_ges(df_ges_0_0):
     return df_final    
 
 
-def recargos(df, calcula_recargos=1):
+def recargos(df, parameters: Parameter_Loader,calcula_recargos=1):
+    ruta_recargos: str = parameters.parameters['ruta_recargos']
+    separador_input: str = parameters.parameters['separador_input']
+    decimal_input: str = parameters.parameters['decimal_input']
+    ruta_output: str = parameters.parameters['ruta_output']
+    fecha_inicio_mes: str = parameters.parameters['fecha_inicio_mes']
     df.rename(columns={'PRIMA REASEGURO':'PRIMA REASEGURO SIN RECARGO'},inplace=True)
     cols_df_final=list(df.columns)+['RECARGO']
     # CALCULOS PARA IAXIS
@@ -588,22 +589,24 @@ def calculo_fechas_renovacion(df,campo_inicio,campo_fin,campo_anulacion,campo_pe
 
 
 
-def automatizacion_querys() -> None:
+def automatizacion_querys(files: Parameter_Loader, parameters: Parameter_Loader) -> None:
     # Parametros de la consulta
-    wb = openpyxl.load_workbook(ruta_extensa + archivo_querys)
-    periodo_inicio=wb[next(wb.defined_names['periodo_inicio'].destinations)[0]][next(wb.defined_names['periodo_inicio'].destinations)[1]].value
-    periodo_fin=wb[next(wb.defined_names['periodo_fin'].destinations)[0]][next(wb.defined_names['periodo_fin'].destinations)[1]].value
-    wb.close()
-    parametros_split=pd.read_excel(io=ruta_extensa + archivo_querys, sheet_name='Split Querys').replace(np.nan, '', regex=True)
-    parametros_querys=pd.read_excel(io=ruta_extensa + archivo_querys, sheet_name='Diccionario Querys').replace(np.nan, '', regex=True)
-    diccionario_querys=parametros_querys.set_index('QUERY').to_dict()
+    querys: Parameter_Loader = Parameter_Loader(excel_file=files.parameters['archivo_querys'], open_wb=True, ruta_extensa='')
+    ruta_extensa: str = parameters.ruta_extensa
+    
+    periodo_inicio: int = querys.get_reference(reference='periodo_inicio')
+    periodo_fin: int = querys.get_reference(reference='periodo_fin')
+    querys.wb.close()
+    parametros_split: pd.DataFrame = querys.get_table_xlsx(sheet_name = 'Split Querys').replace(np.nan, '', regex=True)
+    parametros_querys: pd.DataFrame = querys.get_table_xlsx(sheet_name = 'Diccionario Querys').replace(np.nan, '', regex=True)
+    diccionario_querys: dict[Hashable, Any]=parametros_querys.set_index('QUERY').to_dict()
     
     for consulta in parametros_querys['QUERY']:
         aplica=diccionario_querys['APLICA'][consulta]
         if aplica==1: 
-            ejecuta_query(consulta,periodo_inicio,periodo_fin,diccionario_querys,parametros_split)
+            ejecuta_query(consulta,periodo_inicio,periodo_fin,diccionario_querys,parametros_split, ruta_extensa)
             
-def ejecuta_query(consulta, periodo_inicio, periodo_fin, diccionario_querys, parametros_split, name_file = None):
+def ejecuta_query(consulta, periodo_inicio, periodo_fin, diccionario_querys, parametros_split, ruta_extensa,name_file = None):
     # Tiempo inicial
     start_time = time.time()
     

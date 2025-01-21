@@ -47,7 +47,7 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
     # Campo para luego contar la cantidad de registros
     df['REGISTROS']=1
     # Identificamos los registros que poseen recargos de sobreprima o extraprima
-    df = recargos(df,calcula_recargos=0)
+    df = recargos(df,parameters,calcula_recargos=0)
     
     # * Calculos de asignacion de contratos de reaseguro
     # Asignamos contrato de reaseguro a los registros

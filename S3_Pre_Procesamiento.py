@@ -1,8 +1,6 @@
 """
 PRE-PROCESAMIENTO DE LAS BASES DE DATOS
 """
-
-
 # Importamos librerias que vamos a utilizar
 import pandas as pd
 import numpy as np
@@ -12,49 +10,43 @@ from unidecode import unidecode
 import unicodedata
 import sys
 from pandas.tseries.offsets import MonthEnd
-from S0_Inputs import archivo_querys, archivo_calculos, archivo_parametros, ruta_extensa
-from S1_Parametros_Calculo import fecha_inicio_mes, fecha_cierre, dias_exposicion, periodo, ruta_input, ruta_output, tdm_mensual, edad_casos_perdidos, archivo_input, archivo_input_ges, contrato, tipo_contrato, separador_input, decimal_input, separador_fechas_input, separador_output, decimal_output, campo_rut_duplicados, archivo_reporte, ruta_pyme, ruta_regiones, ruta_si, ruta_otros, base_iaxis, base_ges, clasificacion_contrato, base_input_siniestros_generales, tipo_calculo, ruta_uso_seguro
+from S0_Loaders import Parameter_Loader
 from S2_Funciones import calcula_exposicion, calcula_edad, escribe_reporta, completa_campo_total, corrige_tasas_ges, calculo_fechas_renovacion
 
 # Prueba de Ejecucion del codigo
 print(f'El script {__name__} se está ejecutando')
 
-# Importamos tablas de parametrizaciones
-# Tablas de Primas y Siniestros
-contrato_cob = pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Matriz Contrato-Cobertura')
-parametros_contratos = pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Vigencias')
-reaseguradores = pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Matriz Reaseguradores')
-# Tablas de Primas
-cobs_ges=pd.read_excel(io=archivo_parametros,sheet_name='Coberturas GES')
-meses_renta=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Meses Renta')
-saldo_insoluto=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Saldo Insoluto')
-estados_ges=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Estados GES')
-estados_iaxis=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Estados IAXIS')
-canales_venta=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Canal Venta')
-forma_pago=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Forma Pago')
-planes_ges=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Planes GES')
-
-# Tablas de Cumulos
-cumulos_individuales=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Individual')
-cumulos_contrato=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Contrato')
-cumulos_excedente=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Matriz Cumulo Excedente')
-# Tablas de Siniestros
-ocurrencias=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Ocurrencias')
-
-
-
-def pre_procesamiento(tipo_calculo=tipo_calculo):
+def pre_procesamiento(parameters: Parameter_Loader) -> pd.DataFrame:
     """
     # Funcion de pre-procesamiento de la data
     # Corresponden a modificaciones iniciales a las bbdd antes de hacer el calculo generico
     """
+    tipo_calculo: str = parameters.parameters['tipo_calculo']
+    tipo_contrato: str = parameters.parameters['tipo_contrato']
+    contrato: str = parameters.parameters['contrato']
+    fecha_cierre: datetime.datetime = parameters.parameters['fecha_cierre']
+    periodo: int = parameters.parameters['periodo']
+    archivo_reporte: Any = parameters.parameters['archivo_reporte']
+    ruta_input: str = parameters.parameters['ruta_input']
+    archivo_input: str = parameters.parameters['archivo_input']
+    separador_input: str = parameters.parameters['separador_input']
+    decimal_input: str = parameters.parameters['decimal_input']
+    ruta_output: str = parameters.parameters['ruta_output']
+    ruta_si: str = parameters.parameters['ruta_si']
+    clasificacion_contrato: str = parameters.parameters['clasificacion_contrato']
+    ruta_uso_seguro: str = parameters.parameters['ruta_uso_seguro']
+    base_iaxis: int = parameters.parameters['base_iaxis']
+    base_ges: int = parameters.parameters['base_ges']
+    
+    
     escribe_reporta(archivo_reporte,'COMIENZA LA LECTURA DE LAS BASES DE DATOS:\n{}'.format(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))))
     print(f'Contrato {contrato}')
     if tipo_calculo=='Prima de Reaseguro':
         # Inputs de otras fuentes
-        polizas_pyme=pd.read_csv(ruta_pyme+'1. Inputs Auxiliares\\Polizas Pyme\\'+'Polizas Pyme.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
-        cti=pd.read_csv(ruta_otros+'1. Inputs Auxiliares\\Otros\\'+'CTI.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
-        innominadas=pd.read_csv(ruta_otros+'1. Inputs Auxiliares\\Otros\\'+'polizas_innominadas.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
+        polizas_pyme: pd.DataFrame=pd.read_csv(ruta_pyme+'1. Inputs Auxiliares\\Polizas Pyme\\'+'Polizas Pyme.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
+        cti: pd.DataFrame=pd.read_csv(ruta_otros+'1. Inputs Auxiliares\\Otros\\'+'CTI.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
+        innominadas: pd.DataFrame=pd.read_csv(ruta_otros+'1. Inputs Auxiliares\\Otros\\'+'polizas_innominadas.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
+        cobs_ges: pd.DataFrame=pd.read_excel(io=archivo_parametros,sheet_name='Coberturas GES')
         if contrato=='Complementario UC': uso_seguro_com_uc = pd.read_csv(f'{ruta_uso_seguro}1. Inputs Auxiliares\\Com UC\\COM UC Uso del Seguro Hist {periodo}.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
         if (tipo_contrato=='Vida')&(contrato not in ['K-Fijo','Desgravamen No Licitado','Multisocios']): cols_date,cols_date_ges=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FINI_RENOV_ANUAL','FFIN_RENOV_ANUAL','FECHA_ANULACION'],['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO']
         elif (tipo_contrato=='Vida')&(contrato in ['Desgravamen No Licitado','Multisocios']): cols_date,cols_date_ges=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FINI_RENOV_ANUAL','FFIN_RENOV_ANUAL','FECHA_ANULACION'],['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_INICIO_CRED','FECHA_FIN_CRED']
@@ -65,6 +57,8 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
         # LECTURA DE BASES DE DATOS IAXIS
         if base_iaxis==1: 
             df_iaxis=pd.read_csv(ruta_input+archivo_input,sep=separador_input,decimal=decimal_input,parse_dates=cols_date,date_format='%d-%m-%Y',encoding='latin-1',low_memory=False)
+            estados_iaxis=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Estados IAXIS')
+            canales_venta=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Canal Venta')
             for col in cols_date:
                 if df_iaxis[col].dtype!='datetime64[ns]': df_iaxis[col]=pd.to_datetime(df_iaxis[col],format = '%d-%m-%Y', errors='coerce')   
             df_iaxis['IPRIANU']=round(df_iaxis['IPRIANU'],4)
@@ -100,6 +94,9 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
         # LECTURA DE BASES DE DATOS GES
         if base_ges==1: 
             df_ges=pd.read_csv(ruta_input+archivo_input_ges,sep=separador_input,decimal=decimal_input,parse_dates=cols_date_ges,date_format='%d-%m-%Y',encoding='latin-1',low_memory=False)
+            estados_ges=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Estados GES')
+            forma_pago=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Forma Pago')
+            planes_ges=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Planes GES')
             for col in cols_date_ges:
                 if df_ges[col].dtype!='datetime64[ns]': df_ges[col]=pd.to_datetime(df_ges[col],format = '%d-%m-%Y', errors='coerce')            
             df_ges['CTI']=0
@@ -153,6 +150,7 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
         escribe_reporta(archivo_reporte,'El dataframe input posee una prima neta de {}'.format(np.nansum(df_0_0['IPRIANU'])))
         df_0_0['NRO_OPERACION']=df_0_0['NRO_OPERACION'].fillna(0)
         if 'CANAL_DESC' in df_0_0.columns: df_0_0['CANAL_DESC']=df_0_0['CANAL_DESC'].str.strip()
+        
         df_0_1=df_0_0.merge(cobs_ges[['COD_COB','COB_GES']],how='left',on=['COD_COB'],suffixes=['','_x'])
         df_0_1['COB_GES']=np.where(df_0_1['COB_GES'].isnull(),df_0_1['COD_COB'],df_0_1['COB_GES'])
         df_0_1.rename(columns={'COD_PLAN':'PLAN','IPRIANU':'PRIMA NETA ANUAL','COB_GES':'CODIGO COBERTURA','COD_COB':'CODIGO COBERTURA IAXIS'},inplace=True)
@@ -174,7 +172,9 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
             df_0_1['FEC AUX NA']=pd.to_datetime(df_0_1['FEC AUX NA'],format = '%d-%m-%Y', errors='coerce')
             df_0_1['FECHA_ANULACION']=np.where(df_0_1['FECHA_ANULACION']<=fecha_cierre,df_0_1['FECHA_ANULACION'],df_0_1['FEC AUX NA'])
         # CALCULOS GENERICOS PARA BASES DE VIDA PRIMA RECURRENTE
-        if (tipo_contrato=='Vida')&(contrato!='K-Fijo'): 
+        if (tipo_contrato=='Vida')&(contrato!='K-Fijo'):
+            meses_renta: pd.DataFrame=pd.read_excel(io=ruta_extensa+archivo_parametros,sheet_name='Meses Renta')
+            saldo_insoluto=pd.read_excel(io=ruta_extensa+archivo_parametros, sheet_name='Saldo Insoluto')
             df_0_1['EXPOSICION MENSUAL']=calcula_exposicion(df_0_1,'FECHA_EFECTO','FECHA FIN EXP',dias_exposicion,fecha_inicio_mes,fecha_cierre)
             df_0_1['TIPO ASEGURADO']=np.where((df_0_1['RUT'].isnull())|(df_0_1['RUT']==df_0_1['RUT_CONTRATANTE']),'Titular','Adicional')
             escribe_reporta(archivo_reporte,'Calculando edad de renovacion')
@@ -210,7 +210,7 @@ def pre_procesamiento(tipo_calculo=tipo_calculo):
                 df_0_3['NCUOTAS']=((df_0_3['FECHA_FIN_CRED']-df_0_3['FECHA_EFECTO']).dt.days/365*12).round(0)
                 df_0_3['NCUOTAS FALTANTES']=((df_0_3['FECHA_FIN_CRED']-fecha_cierre).dt.days/365*12).round(0)
                 df_0_3['PERIODO_EFECTO']=df_0_3['FECHA_EFECTO'].dt.year*100+df_0_3['FECHA_EFECTO'].dt.month
-                df_0_3=completa_campo_total(df_0_3,'TASA_CRED',[['PRODUCTO','PERIODO_EFECTO'],['PERIODO_EFECTO']])
+                df_0_3=completa_campo_total(df_0_3,'TASA_CRED',[['PRODUCTO','PERIODO_EFECTO'],['PERIODO_EFECTO']], parameters)
                 df_0_3['SALDO INSOLUTO CALCULADO']=np.where(df_0_3['FECHA_FIN_CRED']<fecha_cierre,0,df_0_3['ICAPITAL']*(1-(1+df_0_3['TASA_CRED_FINAL'])**(-df_0_3['NCUOTAS FALTANTES']))/(1-(1+df_0_3['TASA_CRED_FINAL'])**(-df_0_3['NCUOTAS'])))
                 df_0_3['MONTO ASEGURADO']=np.maximum(df_0_3['SALDO INSOLUTO CALCULADO'],0)
                 df_final_0=df_0_3.copy()
