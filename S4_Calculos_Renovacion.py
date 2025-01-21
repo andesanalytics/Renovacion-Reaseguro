@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """Modulo para calcular la renovación de reaseguro para un contrato específico.
 """
-
-
 # Ignorar warnings asociados a la lista desplegable del excel de parametros
 import warnings
 warnings.simplefilter(action='ignore', category=UserWarning)
@@ -11,8 +9,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from S0_Loaders import Parameter_Loader
-# Importamos parametros necesarios de scripts previos del modelo
-from S1_Parametros_Calculo import archivo_parametros, tipo_calculo, contrato, ruta_otros
+from S1_Parametros_Calculo import carga_parametros
 # Importamos las funciones que requerimos del script de funciones
 from S2_Funciones import asignacion_contratos, asignacion_vigencias, cumulos, recargos, cruce_left, identificador_anonimo
 # Importamos la funcion de preprocesamiento del script que preprocesa los datos
@@ -27,18 +24,18 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
     ruta_salidas : str
         Contiene la ruta donde se guardarán los resultados principales de los calculos
     """
-    
+    contrato: str = parameters.parameters['contrato']
     # * Traemos tablas de parametrizaciones que vamos a usar
     # Matriz para asignar el nombre del producto
-    nombre_prods: pd.DataFrame = pd.read_excel(io=archivo_parametros, sheet_name='Nombre Productos Renovacion')
+    nombre_prods: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Nombre Productos Renovacion')
     # Matrices para asignar los campos RAMO_REAS y COB_REAS 
     # ! Estos campos son solicitados por el área de productos y son dos matrices porque una es para el contrato de reaseguro de Desgravamen No Licitado, mientras que la otra matriz es para el resto de contratos
-    ramo_reas_otros: pd.DataFrame = pd.read_excel(io=archivo_parametros, sheet_name='Ramo Reas Otros')
-    ramo_reas_desgnl: pd.DataFrame = pd.read_excel(io=archivo_parametros, sheet_name='Ramo Reas Desg NL')
+    ramo_reas_otros: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Ramo Reas Otros')
+    ramo_reas_desgnl: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Ramo Reas Desg NL')
     
     # * Calculos previos del proceso antes de asignar el contrato de reaseguro
     # Preprocesamiento de la Data: A las querys que se extraen de los sistemas de administracion de BBDD (GES e Iaxis) se le realizan ciertas transformaciones a la data antes de asignar contratos de reaseguro y realizar los calculos
-    df = pre_procesamiento(tipo_calculo)
+    df: pd.DataFrame = pre_procesamiento(parameters, tables)
     # ! Solicitado por el área de productos, anonimizamos el campo RUT
     df = identificador_anonimo(df, ['RUT'])
     #  ! Solicitado por el área de productos, eliminamos los productos de Hospitalario 100% y productos fallecimiento COVID'
@@ -57,11 +54,11 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
 
     # * Calculos de cumulos asociados a los contratos
     # Cumulo sobre el monto asegurado que proviene de cada persona individualmente
-    df = cumulos(df, campo_cumulo = 'RIESGO LIMITE INDIVIDUAL')
+    df = cumulos(df, parameters, tables, campo_cumulo = 'RIESGO LIMITE INDIVIDUAL')
     # Cumulo sobre el monto asegurado que proviene del contrato en su conjunto
-    df = cumulos(df, campo_cumulo = 'RIESGO LIMITE CONTRATO')
+    df = cumulos(df, parameters, tables, campo_cumulo = 'RIESGO LIMITE CONTRATO')
     # Cumulo sobre el monto asegurado que aplica sobre contratos de excedente
-    df = cumulos(df, campo_cumulo = 'RIESGO RETENCION EXCEDENTE')
+    df = cumulos(df, parameters, tables, campo_cumulo = 'RIESGO RETENCION EXCEDENTE')
 
 
     # * Calculos de capitales cedidos y retenidos
@@ -75,11 +72,11 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
     #  ! Solicitado por el área de productos
     # asignamos campos RAMO_REAS y COB_REAS 
     if contrato=='Desgravamen No Licitado':
-        df = cruce_left(df, ramo_reas_desgnl, ['COBERTURA DEL CONTRATO'], ['COBERTURA DEL CONTRATO'],name='ramo_reas_desgnl', ruta_output = ruta_salidas)
+        df = cruce_left(df, ramo_reas_desgnl, ['COBERTURA DEL CONTRATO'], ['COBERTURA DEL CONTRATO'],parameters,name='ramo_reas_desgnl')
     elif contrato in ['Digital Klare','K-Fijo','AP + Urgencias Medicas','Multisocios']:
-        df = cruce_left(df, ramo_reas_otros, ['POL_PROD','CODIGO COBERTURA'], ['POL_PROD','CODIGO COBERTURA'],name='ramo_reas_otros', ruta_output = ruta_salidas)
+        df = cruce_left(df, ramo_reas_otros, ['POL_PROD','CODIGO COBERTURA'], ['POL_PROD','CODIGO COBERTURA'],parameters,name='ramo_reas_otros')
     # Asignamos nombre de producto
-    df = cruce_left(df, nombre_prods, ['PRODUCTO','BASE'], ['PRODUCTO','BASE'],name='nombre_prods', ruta_output = ruta_salidas)
+    df = cruce_left(df, nombre_prods, ['PRODUCTO','BASE'], ['PRODUCTO','BASE'],parameters,name='nombre_prods')
     # Contrato K-Fijo no posee estos campos, así que los creamos para que la base sea uniforme para todos los contratos
     if contrato == 'K-Fijo':
         df['MESES RENTA'] = 1
@@ -103,4 +100,11 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
 if __name__=='__main__':
     ruta_salidas='2 Output\\Resultados 2024-12-20\\'
     Path(ruta_salidas).mkdir(parents=True, exist_ok=True)
-    calculos_Renovacion(ruta_salidas)
+    files: Parameter_Loader = Parameter_Loader(excel_file='Inputs Archivos Excel.xlsx', open_wb=True, ruta_extensa='')
+    files.get_reference(reference='archivo_calculos')
+    files.get_reference(reference='archivo_querys')
+    files.get_reference(reference='archivo_parametros')
+    parameters: Parameter_Loader = Parameter_Loader(excel_file=files.parameters['archivo_calculos'], open_wb=True)
+    carga_parametros(files, parameters)
+    tables: Parameter_Loader = files.parameters['archivo_parametros']
+    calculos_renovacion(parameters, tables, ruta_salidas)

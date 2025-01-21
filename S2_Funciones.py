@@ -589,11 +589,10 @@ def calculo_fechas_renovacion(df,campo_inicio,campo_fin,campo_anulacion,campo_pe
 
 
 
-def automatizacion_querys(files: Parameter_Loader, parameters: Parameter_Loader) -> None:
+def automatizacion_querys(files: Parameter_Loader) -> None:
     # Parametros de la consulta
     querys: Parameter_Loader = Parameter_Loader(excel_file=files.parameters['archivo_querys'], open_wb=True, ruta_extensa='')
-    ruta_extensa: str = parameters.ruta_extensa
-    
+    ruta_extensa: str = files.ruta_extensa
     periodo_inicio: int = querys.get_reference(reference='periodo_inicio')
     periodo_fin: int = querys.get_reference(reference='periodo_fin')
     querys.wb.close()
