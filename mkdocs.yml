@@ -21,8 +21,9 @@ theme:
 
 
 nav:
-  - Funciones: S2_Funciones.md
-  - Calculos: S4_Calculos_Renovacion.md
+  - Funciones_: S2_Funciones.md
+  - Calculos_: S4_Calculos_Renovacion.md
+  - Archivo_: Archivo.md
 
 
 plugins:

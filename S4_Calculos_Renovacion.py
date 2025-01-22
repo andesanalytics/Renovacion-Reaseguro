@@ -1,31 +1,35 @@
 # -*- coding: utf-8 -*-
 """Modulo para calcular la renovación de reaseguro para un contrato específico.
 """
-# Ignorar warnings asociados a la lista desplegable del excel de parametros
+
 import warnings
-warnings.simplefilter(action='ignore', category=UserWarning)
-# Importamos librerias que vamos a utilizar
 import pandas as pd
 import numpy as np
 from pathlib import Path
 from S0_Loaders import Parameter_Loader
 from S1_Parametros_Calculo import carga_parametros
-# Importamos las funciones que requerimos del script de funciones
 from S2_Funciones import asignacion_contratos, asignacion_vigencias, cumulos, recargos, cruce_left, identificador_anonimo
-# Importamos la funcion de preprocesamiento del script que preprocesa los datos
 from S3_Pre_Procesamiento import pre_procesamiento
 
+# Quitamos los warning de la pantalla
+warnings.simplefilter(action='ignore', category=UserWarning)
 
 def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, ruta_salidas: str) -> None:
     """Realiza los calculos de asociados a la renovacion de reaseguro para un contrato en específico.
 
     Parameters
     ----------
+    parameters : Parameter_Loader
+        Contiene todos los parametros de la ejecución
+    tables : Parameter_Loader
+        Contiene las tablas de parametria que se utilizan durante el proceso
     ruta_salidas : str
         Contiene la ruta donde se guardarán los resultados principales de los calculos
     """
+    
+    # * Traemos parametros y tablas que vamos a usar
+    # Contrato de reaseguro
     contrato: str = parameters.parameters['contrato']
-    # * Traemos tablas de parametrizaciones que vamos a usar
     # Matriz para asignar el nombre del producto
     nombre_prods: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Nombre Productos Renovacion')
     # Matrices para asignar los campos RAMO_REAS y COB_REAS 
@@ -60,7 +64,6 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
     # Cumulo sobre el monto asegurado que aplica sobre contratos de excedente
     df = cumulos(df, parameters, tables, campo_cumulo = 'RIESGO RETENCION EXCEDENTE')
 
-
     # * Calculos de capitales cedidos y retenidos
     df['CAPITAL CEDIDO POST EXCEDENTE'] = df['CAPITAL POST LIMITE CONTRATO'] * (1-df['PORCENTAJE RETENCION EXCEDENTE'])
     df['CAPITAL RETENIDO POST QS'] = df['CAPITAL RETENIDO POST EXCEDENTE'] * (1-np.where(df['CESION QS'].isnull(),0,df['CESION QS']))
@@ -69,7 +72,7 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
     df['CAPITAL CEDIDO TOTAL'] = df['CAPITAL CEDIDO POST EXCEDENTE'] + df['CAPITAL CEDIDO QS']
     df['PORCENTAJE CEDIDO FINAL']=np.where(df['MONTO ASEGURADO']>0,df['CAPITAL CEDIDO TOTAL']/df['MONTO ASEGURADO'],df['CESION QS']*df['PORCENTAJE LIMITE INDIVIDUAL']*df['PORCENTAJE LIMITE CONTRATO']*df['PORCENTAJE RETENCION EXCEDENTE'])
     
-    #  ! Solicitado por el área de productos
+    # ! Solicitado por el área de productos
     # asignamos campos RAMO_REAS y COB_REAS 
     if contrato=='Desgravamen No Licitado':
         df = cruce_left(df, ramo_reas_desgnl, ['COBERTURA DEL CONTRATO'], ['COBERTURA DEL CONTRATO'],parameters,name='ramo_reas_desgnl')
@@ -79,7 +82,9 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
     df = cruce_left(df, nombre_prods, ['PRODUCTO','BASE'], ['PRODUCTO','BASE'],parameters,name='nombre_prods')
     # Contrato K-Fijo no posee estos campos, así que los creamos para que la base sea uniforme para todos los contratos
     if contrato == 'K-Fijo':
+        # Creamos Meses de renta igual a 1
         df['MESES RENTA'] = 1
+        # Creamos tipo de asegurado como titular
         df['TIPO ASEGURADO'] = 'Titular'
     # Campos seleccionados tanto para la salida de uso interno como para la salida que se entregará a los reaseguradores        
     campos_productos = ['FECHA_CIERRE','BASE','IDENTIFICADOR','RUT','SSEGURO','POLIZA','CERTIFICADO','PRODUCTO','NOMBRE_PRODUCTO','PLAN','CODIGO_COBERTURA','CODIGO_COBERTURA_IAXIS','CONTRATO_REASEGURO','COBERTURA_DEL_CONTRATO','RAMO_REAS','COB_REAS','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','FEC_NAC','EDAD','SEXO','TIPO_POLIZA','FORMA_PAGO_CODIGO','MESES_RENTA','INNOMINADA','PRIMA_NETA_ANUAL','ICAPITAL','MONTO_ASEGURADO','CAPITAL_RETENIDO_TOTAL','CAPITAL_CEDIDO_TOTAL','RECARGO']

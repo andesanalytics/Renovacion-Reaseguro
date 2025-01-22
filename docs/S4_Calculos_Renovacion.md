@@ -1,5 +1,53 @@
 # Modulo S4: Calculos de la Renovacion de Reaseguro
 
+
+La instrucción `warnings.simplefilter(action='ignore', category=UserWarning)` **desactiva las advertencias** de tipo `UserWarning` en la salida del programa. Esto significa que **no se mostrarán** en la pantalla, ayudando a mantener la salida más limpia.
+
+El comentario indica que se busca **eliminar las advertencias** visibles.
+
+La instrucción `contrato: str = parameters.parameters['contrato']` asigna el valor del contrato de reaseguro a la variable `contrato`. Este valor se obtiene de un conjunto de parámetros.
+
+La instrucción `nombre_prods: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Nombre Productos Renovacion')` **carga una tabla desde un archivo Excel**.
+
+El comentario indica que esta tabla se utiliza como una **matriz para asignar el nombre del producto**.
+
+
+La función `calculos_renovacion` se encarga de realizar cálculos relacionados con la **renovación de reaseguro** para un contrato específico.
+
+### Parámetros:
+- **parameters**: Incluye todos los parámetros necesarios para la ejecución.
+- **tables**: Contiene las tablas de parámetros que se utilizan en el proceso.
+- **ruta_salidas**: Especifica la ubicación donde se guardarán los resultados de los cálculos.
+
+# Importación de Parámetros y Tablas
+
+Se obtienen los **parámetros** y **tablas** necesarios para el funcionamiento del programa. Esto es esencial para asegurar que el código tenga acceso a la información requerida para realizar sus tareas.
+
+
+La instrucción `contrato: str = parameters.parameters['contrato']` asigna a la variable `contrato` un valor que proviene de un conjunto de parámetros. Este valor está relacionado con un **contrato de reaseguro**.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Tablas de Parametrizaciones
 
 1. **Matriz de Asignación de Contratos de Reaseguro (`contrato_cob`)**  
