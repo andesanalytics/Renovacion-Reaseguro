@@ -24,9 +24,9 @@ ruta_salidas: str = '2 Output\\Resultados Validacion V1\\'
 Path(ruta_salidas).mkdir(parents=True, exist_ok=True)
 contratos_ejecutar: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios','Desgravamen No Licitado']
 contratos_consolidar_catxl: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios','Desgravamen No Licitado']
-# contratos_ejecutar: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios']
-# contratos_consolidar_catxl: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios']
-
+contratos_ejecutar: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios']
+contratos_consolidar_catxl: list[str] = ['AP + Urgencias Medicas','Digital Klare','K-Fijo','Multisocios']
+contratos_consolidar_catxl: list[str] = []
 
 if __name__=='__main__':
     while True:

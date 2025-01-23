@@ -1,27 +1,21 @@
 """
 Este script contiene todas las funciones externas que ayudan ya sea a preprocesar la data o a calcular el reaseguro
 """
-    
 
 # Importamos librerias que vamos a utilizar
 import pandas as pd
 import numpy as np
 import time
 import datetime
-import os
 import cx_Oracle
-import shutil
-from zipfile import ZipFile, ZIP_DEFLATED
+from numpy._typing._array_like import NDArray
 from pathlib import Path
-from typing import Any, Hashable
+from typing import Any, Hashable, TextIO
 from itertools import chain, combinations
 from S0_Loaders import Parameter_Loader
 
-# Prueba de Ejecucion del codigo
-print(f'El script {__name__} se está ejecutando')
 
-# * FUNCIONES
-def escribe_reporta(reporte,texto: str) -> None:
+def escribe_reporta(reporte: TextIO,texto: str) -> None:
     """Escribe en un archivo txt, que ya debe venir abierto previamente el texto que le indiquemos
 
     Parameters
@@ -124,9 +118,26 @@ def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parame
 
 
 def asignacion_contratos(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Loader,mantiene_na: int = 0) -> pd.DataFrame:
-    
-    """ Asignacion de todos los contratos de reaseguro, de acuerdo al tipo_calculo seleccionado
-        Utiliza la funcion anterior tantas veces como sea necesario hasta filtrar todo lo que el tipo_calculo tiene"""
+    """Asignacion de contratos de reaseguro, de acuerdo al contrato seleccionado
+        Utiliza la funcion filtra_una_combinacion tantas veces como sea necesario hasta filtrar todo lo que el contrato tiene
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe con la data de asegurados
+    parameters : Parameter_Loader
+        Contiene los parametros del calculo
+    tables : Parameter_Loader
+        Contiene las tablas que ayudan a calcular los contratos de reaseguro
+    mantiene_na : int, optional
+        binario que permite mantener los registros que no fueron asignados al contrato de reaseguro, by default 0
+
+    Returns
+    -------
+    pd.DataFrame
+        dataframe original pero con mayor cantidad de campos que indican caracteristicas del contrato asignado
+    """
+
         
     # Contiene las polizas que debo asignar por ocurrencia al reaseguro
     ocurrencias: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Ocurrencias')
@@ -166,25 +177,23 @@ def asignacion_contratos(df: pd.DataFrame, parameters: Parameter_Loader, tables:
 
 
 def asignacion_vigencias(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Loader,mantiene_na: int = 0) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """ Para siniestros, asigna a la vigencia a la cual pertenece 
-        La asignacion puede ser por tipo_calculo, o por tipo_calculo y cobertura, dandole mayor flexibilidad a la forma de cruzar data
-        Lo que tambien lo hace mas eficiente
+    """Asigna la vigencia del reaseguro a la cual pertenece cada registro. Tambien puede quitar del reaseguro aquellos registros que por fechas de inicio y fin no deban pertencer al contrato de reaseguro
 
     Parameters
     ----------
     df : pd.DataFrame
-        _description_
-    tabla_parametros : pd.DataFrame
-        _description_
-    tipo_calculo : str
-        _description_
+        dataframe con la data de asegurados
+    parameters : Parameter_Loader
+        Contiene los parametros del calculo
+    tables : Parameter_Loader
+        Contiene las tablas que ayudan a calcular 
     mantiene_na : int, optional
-        _description_, by default 0
+        binario que permite mantener los registros que no fueron asignados al contrato de reaseguro, by default 0
 
     Returns
     -------
     tuple[pd.DataFrame, pd.DataFrame]
-        _description_
+        dataframe original pero con mayor cantidad de campos que indican caracteristicas de la vigencia del contrato asignado
     """
 
     archivo_reporte: Any = parameters.parameters['archivo_reporte']
@@ -232,11 +241,37 @@ def asignacion_vigencias(df: pd.DataFrame, parameters: Parameter_Loader, tables:
 
 
 def cumulo_riesgo(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Loader, riesgo_cumulo: str, campos_str: str, limite_retencion:Any,tipo_cumulo: str,columna_capital: str) -> pd.DataFrame:
+    """_summary_
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        _description_
+    parameters : Parameter_Loader
+        _description_
+    tables : Parameter_Loader
+        _description_
+    riesgo_cumulo : str
+        _description_
+    campos_str : str
+        _description_
+    limite_retencion : Any
+        _description_
+    tipo_cumulo : str
+        _description_
+    columna_capital : str
+        _description_
+
+    Returns
+    -------
+    pd.DataFrame
+        _description_
+    """
     tipo_calculo: str = parameters.parameters['tipo_calculo']
     contrato: str = parameters.parameters['contrato']
     archivo_reporte: Any = parameters.parameters['archivo_reporte']
     ruta_extensa: str = parameters.ruta_extensa
-    """ Funcion de calculo de cumulo para un tipo_calculo y riesgo particular """
+    # * Funcion de calculo de cumulo para un tipo_calculo y riesgo particular
     # Filtro el df por el tipo_calculo y el riesgo de cumulo correspondiente
     df_filter=df[(df['CONTRATO REASEGURO']==contrato) & (df[tipo_cumulo]==riesgo_cumulo)]
     # Si el df filtrado es vacio (pensado en que la funcion cumulos recorre todos los registros de su tabla de cumulos), entonces crea en el df las columnas que se crearán en caso de no ser vacio
@@ -290,76 +325,165 @@ def cumulo_riesgo(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parame
 
 
 def cumulos(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Loader,campo_cumulo: str) -> pd.DataFrame:
-    """ 
-    Funcion de calculo de cumulo para todos los riesgos y contratos dentro del df
-    En campo_cumulo tenemos las siguientes alternativas (ver diccionario de cumulos)
-        # RIESGO LIMITE INDIVIDUAL
-        # RIESGO LIMITE CONTRATO
-        # RIESGO CONTRATOS EXCEDENTES
-        # RIESGO LIMITE INDIVIDUAL SINIESTROS
-        # RIESGO RETENCION EXCEDENTE SINIESTROS
     """
-    # Contiene los cumulos individuales por contrato de reaseguro y cobertura
-    cumulos_individuales = tables.get_table_xlsx(sheet_name = 'Matriz Cumulo Individual')
-    # Contiene cumulos que tenga el cotnrato a nivel general (ejemplo: I&S tiene cumulos por zonas)
-    cumulos_contrato = tables.get_table_xlsx(sheet_name = 'Matriz Cumulo Contrato')
-    # Contiene los limites de retencion de excedente
-    cumulos_excedente = tables.get_table_xlsx(sheet_name = 'Matriz Cumulo Excedente')
-    
+    Calcula y asigna los límites o retenciones de cúmulo de reaseguros 
+    según los parámetros y tablas de cúmulos definidos.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame con la información base sobre la cual se aplican 
+        los cálculos de cúmulos (pueden ser pólizas, siniestros, etc.).
+    parameters : Parameter_Loader
+        Objeto que contiene los parámetros de configuración necesarios 
+        para la función (por ejemplo, 'archivo_reporte', 'tipo_calculo', etc.).
+    tables : Parameter_Loader
+        Objeto que carga las tablas en formato xlsx para definir los 
+        diferentes tipos de cúmulos: 
+        - 'Matriz Cumulo Individual'
+        - 'Matriz Cumulo Contrato'
+        - 'Matriz Cumulo Excedente'
+    campo_cumulo : str
+        Tipo de cúmulo a aplicar. Puede tomar valores como:
+        - 'RIESGO LIMITE INDIVIDUAL'
+        - 'RIESGO LIMITE CONTRATO'
+        - 'RIESGO RETENCION EXCEDENTE'
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame con la información actualizada según la aplicación
+        de los cálculos de cúmulo. Se añaden (o modifican) columnas para 
+        reflejar el cúmulo, la retención o límite asociado, los porcentajes 
+        aplicados y el capital posterior al cálculo, entre otros campos.
+    """
+
+    # Se obtienen las tablas con configuraciones de cúmulos de acuerdo con cada tipo.
+    cumulos_individuales = tables.get_table_xlsx(sheet_name='Matriz Cumulo Individual')
+    cumulos_contrato = tables.get_table_xlsx(sheet_name='Matriz Cumulo Contrato')
+    cumulos_excedente = tables.get_table_xlsx(sheet_name='Matriz Cumulo Excedente')
+
+    # Se recuperan algunos parámetros relevantes.
     archivo_reporte: Any = parameters.parameters['archivo_reporte']
     tipo_calculo: str = parameters.parameters['tipo_calculo']
-    """ Diccionario para campos de cumulos
-    Entregamos variables claves relacionadas con el tipo de cumulo que hacemos:
-    0:= Nombre del campo de cumulo total
-    1:= Nombre del campo de porcentaje
-    2:= Nombre del campo de la retencion o limite
-    3:= Tambla de retenciones o limites
-    4:= Sobre que campo de montos asegurados hacemos los cumulos
-    5:= Nombre del campo resultante de montos asegurados despues de aplicar el limite o retencion
-    6:= Nombre del campo de cumulo de pagados (solo aplica para siniestros)
-    """
-    diccionario_cumulos ={\
-    'RIESGO LIMITE INDIVIDUAL':['CUMULO LIMITE INDIVIDUAL','PORCENTAJE LIMITE INDIVIDUAL','LIMITE INDIVIDUAL',cumulos_individuales,'MONTO ASEGURADO','CAPITAL POST LIMITE INDIVIDUAL','CUMULO PAGADOS LIMITE INDIVIDUAL'],\
-    'RIESGO LIMITE CONTRATO':['CUMULO LIMITE CONTRATO','PORCENTAJE LIMITE CONTRATO','LIMITE CONTRATO',cumulos_contrato,'CAPITAL POST LIMITE INDIVIDUAL','CAPITAL POST LIMITE CONTRATO','CUMULO PAGADOS LIMITE CONTRATO'],\
-    'RIESGO RETENCION EXCEDENTE':['CUMULO RETENCION EXCEDENTE','PORCENTAJE RETENCION EXCEDENTE','RETENCION EXCEDENTE',cumulos_excedente,'CAPITAL POST LIMITE CONTRATO','CAPITAL RETENIDO POST EXCEDENTE','CUMULO PAGADOS RETENCION EXCEDENTE'],\
+
+    # Diccionario que define los campos a utilizar dependiendo del tipo de cúmulo.
+    # Índices:
+    #   0: Nombre del campo de cúmulo total
+    #   1: Nombre del campo de porcentaje
+    #   2: Nombre del campo de retención o límite
+    #   3: Tabla con los valores de retenciones o límites
+    #   4: Campo base para el cálculo de montos asegurados
+    #   5: Campo resultante después de aplicar límite o retención
+    #   6: Campo de cúmulo de pagados (aplica para siniestros)
+    diccionario_cumulos = {
+        'RIESGO LIMITE INDIVIDUAL': [
+            'CUMULO LIMITE INDIVIDUAL',
+            'PORCENTAJE LIMITE INDIVIDUAL',
+            'LIMITE INDIVIDUAL',
+            cumulos_individuales,
+            'MONTO ASEGURADO',
+            'CAPITAL POST LIMITE INDIVIDUAL',
+            'CUMULO PAGADOS LIMITE INDIVIDUAL'
+        ],
+        'RIESGO LIMITE CONTRATO': [
+            'CUMULO LIMITE CONTRATO',
+            'PORCENTAJE LIMITE CONTRATO',
+            'LIMITE CONTRATO',
+            cumulos_contrato,
+            'CAPITAL POST LIMITE INDIVIDUAL',
+            'CAPITAL POST LIMITE CONTRATO',
+            'CUMULO PAGADOS LIMITE CONTRATO'
+        ],
+        'RIESGO RETENCION EXCEDENTE': [
+            'CUMULO RETENCION EXCEDENTE',
+            'PORCENTAJE RETENCION EXCEDENTE',
+            'RETENCION EXCEDENTE',
+            cumulos_excedente,
+            'CAPITAL POST LIMITE CONTRATO',
+            'CAPITAL RETENIDO POST EXCEDENTE',
+            'CUMULO PAGADOS RETENCION EXCEDENTE'
+        ],
     }
-    # Va a buscar la tabla de cumulos, de acuerdo al tipo de cumulo que hayamos solicitado realizar
-    escribe_reporta(archivo_reporte,'Comienza proceso de calculo de cumulos del tipo {}:\n{}'.format(campo_cumulo,time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))))
-    tabla_cumulos=diccionario_cumulos[campo_cumulo][3]
-    # Check si los campo_cumulo y de monto_cumulo estan dentro del df
-    for campo in [campo_cumulo,diccionario_cumulos[campo_cumulo][4]]:
+
+    # Se registra el inicio del proceso de cálculo de cúmulos.
+    escribe_reporta(
+        archivo_reporte,
+        'Comienza proceso de calculo de cumulos del tipo {}:\n{}'.format(
+            campo_cumulo,
+            time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+        )
+    )
+
+    # Se selecciona la tabla correspondiente al tipo de cúmulo especificado.
+    tabla_cumulos = diccionario_cumulos[campo_cumulo][3]
+
+    # Validación: se verifica que los campos requeridos existan en el DataFrame.
+    for campo in [campo_cumulo, diccionario_cumulos[campo_cumulo][4]]:
         if campo not in df.columns:
-            escribe_reporta(archivo_reporte,'El campo {} no se encuentra dentro del dataframe'.format(campo))
-    # Se parte por los registros que no tengan que ser acumulados
-    # Se llama df_inicial a este df
-    df_inicial=df[df[campo_cumulo].isnull()].copy()
-    # Se crean campos que posteriormente se crearán, con sus valores adecuados
-    df_inicial['CUMULO']=df_inicial[diccionario_cumulos[campo_cumulo][4]]
-    df_inicial['LIMITE O RETENCION']=np.nan
-    if 'Siniestro' in tipo_calculo: df_inicial['CUMULO_PAGADOS']=np.where(df_inicial['ESTADO SINIESTRO']=='PAGADO',df_inicial[diccionario_cumulos[campo_cumulo][4]],0)
-    df_inicial['PORCENTAJE']=1
-    df_inicial['CAPITAL POSTERIOR']=df_inicial[diccionario_cumulos[campo_cumulo][4]]
-    # Ahora, agregaremos al df_inicial la iteración de todos los cumulos que existan según la parametrizacion de la tabla de cumulos
+            escribe_reporta(
+                archivo_reporte,
+                'El campo {} no se encuentra dentro del dataframe'.format(campo)
+            )
+
+    # Se filtran los registros que no requieren ser acumulados (campo_cumulo nulo).
+    df_inicial = df[df[campo_cumulo].isnull()].copy()
+
+    # Se inicializan campos para el DataFrame con valores por defecto.
+    df_inicial['CUMULO'] = df_inicial[diccionario_cumulos[campo_cumulo][4]]
+    df_inicial['LIMITE O RETENCION'] = np.nan
+
+    # Si se trata de siniestros, se calcula el cúmulo de pagados solo para los registros con estado "PAGADO".
+    if 'Siniestro' in tipo_calculo:
+        df_inicial['CUMULO_PAGADOS'] = np.where(
+            df_inicial['ESTADO SINIESTRO'] == 'PAGADO',
+            df_inicial[diccionario_cumulos[campo_cumulo][4]],
+            0
+        )
+
+    df_inicial['PORCENTAJE'] = 1
+    df_inicial['CAPITAL POSTERIOR'] = df_inicial[diccionario_cumulos[campo_cumulo][4]]
+
+    # Por cada configuración en la tabla de cúmulos, se aplica la función `cumulo_riesgo`
+    # y se concatenan los resultados al DataFrame inicial.
     for index, row in tabla_cumulos.iterrows():
-        # Aplicamos la funcion de cumulo_riesgo para cada tipo_calculo-cumulo que exista en la tabla de cumulos
-        # print(row['CONTRATO REASEGURO']+'-'+row[campo_cumulo])
-        df_agregar=cumulo_riesgo(df,parameters, tables,row[campo_cumulo],row['CAMPOS A ACUMULAR'],row['LIMITE O RETENCION'],campo_cumulo,diccionario_cumulos[campo_cumulo][4])
-        # Concatenamos con el df inicial
-        df_inicial=pd.concat([df_inicial,df_agregar],axis=0)
-    # Renombramos las variables, para que tengan un significado asociado al tipo de cumulo aplicado (ver diccionario de cumulos)
-    df_inicial.rename(columns={'CUMULO': diccionario_cumulos[campo_cumulo][0],'PORCENTAJE': diccionario_cumulos[campo_cumulo][1],'LIMITE O RETENCION': diccionario_cumulos[campo_cumulo][2],'CAPITAL POSTERIOR': diccionario_cumulos[campo_cumulo][5],'CUMULO_PAGADOS': diccionario_cumulos[campo_cumulo][6]}, inplace=True)
+        df_agregar = cumulo_riesgo(
+            df,
+            parameters,
+            tables,
+            row[campo_cumulo],
+            row['CAMPOS A ACUMULAR'],
+            row['LIMITE O RETENCION'],
+            campo_cumulo,
+            diccionario_cumulos[campo_cumulo][4]
+        )
+        df_inicial = pd.concat([df_inicial, df_agregar], axis=0)
+
+    # Se renombran las columnas para reflejar correctamente el tipo de cúmulo aplicado.
+    df_inicial.rename(
+        columns={
+            'CUMULO': diccionario_cumulos[campo_cumulo][0],
+            'PORCENTAJE': diccionario_cumulos[campo_cumulo][1],
+            'LIMITE O RETENCION': diccionario_cumulos[campo_cumulo][2],
+            'CAPITAL POSTERIOR': diccionario_cumulos[campo_cumulo][5],
+            'CUMULO_PAGADOS': diccionario_cumulos[campo_cumulo][6]
+        },
+        inplace=True
+    )
+
     return df_inicial
 
 
-def calcula_edad(rut_series,fec_nac_series,fec_corte_series,edad_perdidos,edad_tope,archivo_reporte, reporta_issues = 0, edad_inf = 0, aplica_edad_prom_cartera = 0):
+
+def calcula_edad(rut_series: pd.Series,fec_nac_series: pd.Series,fec_corte_series: Any,edad_perdidos: int,edad_tope: int,archivo_reporte: TextIO, reporta_issues: int = 0, edad_inf: int = 0, aplica_edad_prom_cartera: int = 0) -> NDArray[np.int_], Any: # type: ignore
     """ Funcion de calculo de edad """
     df_ruts=pd.DataFrame({'RUT':rut_series,'FEC_NAC':fec_nac_series})
     df_fechas_nac=pd.DataFrame({'RUT':rut_series,'FEC_NAC':fec_nac_series}).groupby(['RUT']).min().reset_index()
     df_ruts_final=df_ruts.merge(df_fechas_nac,how='left',on='RUT')
     fec_nac_series=df_ruts_final['FEC_NAC_y']
     edad_malas=np.where((fec_nac_series.isnull())|(fec_nac_series==datetime.datetime(1900,1,1)),1,0)
-    serie_year=pd.DatetimeIndex(fec_nac_series).year
-    serie_monthday=pd.DatetimeIndex(fec_nac_series).month*100+pd.DatetimeIndex(fec_nac_series).day
+    serie_year=pd.DatetimeIndex(fec_nac_series).year # type: ignore
+    serie_monthday=pd.DatetimeIndex(fec_nac_series).month*100+pd.DatetimeIndex(fec_nac_series).day # type: ignore
     if type(fec_corte_series)==pd.core.series.Series:  # type: ignore
         fec_corte_year=pd.DatetimeIndex(fec_corte_series).year
         fec_corte_monthday=pd.DatetimeIndex(fec_corte_series).month*100+pd.DatetimeIndex(fec_corte_series).day
@@ -385,18 +509,70 @@ def calcula_edad(rut_series,fec_nac_series,fec_corte_series,edad_perdidos,edad_t
     if reporta_issues==0: return edad_series_final
     else: return edad_series_final,registros_issues
     
-def calcula_exposicion(df,campo_inicio,campo_fin,exp_days,fec_bop,fec_eop):
-    """ Funcion de calculo de exposicion """
-    df_aux=df.copy()
-    df_aux['INICIO MES']=pd.Timestamp(fec_bop.year, fec_bop.month, fec_bop.day)
-    df_aux['FIN MES']=pd.Timestamp(fec_eop.year, fec_eop.month, fec_eop.day)+datetime.timedelta(days=1)
-    serie_inicio=np.maximum(df_aux['INICIO MES'],df_aux[campo_inicio])
-    serie_fin=np.minimum(df_aux['FIN MES'],df_aux[campo_fin])
-    serie_exposicion=np.where((df_aux[campo_inicio]>fec_eop) | (df_aux[campo_fin]<fec_bop) |(df_aux[campo_inicio]>df_aux[campo_fin]),0,((serie_fin-serie_inicio).dt.days)/exp_days)
+def calcula_exposicion(df: pd.DataFrame, campo_inicio: str,campo_fin: str, exp_days: int, fec_bop: datetime.datetime, fec_eop: datetime.datetime) -> NDArray[np.int_]: 
+    """
+    Calcula la exposición de cada registro en función de rangos de fechas de inicio y fin,
+    ajustada a un período definido por `fec_bop` y `fec_eop`. El resultado se expresa
+    como la proporción de días expuestos sobre `exp_days`.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame de entrada con la información de fechas (columnas de inicio y fin).
+    campo_inicio : str
+        Nombre de la columna en `df` que representa la fecha de inicio de validez.
+    campo_fin : str
+        Nombre de la columna en `df` que representa la fecha de fin de validez.
+    exp_days : int
+        Número de días que representan un período estándar de exposición (por ejemplo, 365).
+    fec_bop : datetime.datetime
+        Fecha de inicio (Beginning of Period) para el cálculo de la exposición.
+    fec_eop : datetime.datetime
+        Fecha de fin (End of Period) para el cálculo de la exposición.
+
+    Returns
+    -------
+    np.typing.NDArray[np.int_]
+        Arreglo de NumPy con los valores de exposición. Cada posición indica la proporción
+        de exposición del registro correspondiente, calculada en relación a `exp_days`.
+    """
+    # Se realiza una copia del DataFrame original para no modificarlo directamente.
+    df_aux = df.copy()
+
+    # Se crean dos columnas que definen el período de cálculo de la exposición:
+    # 'INICIO MES' (fec_bop) y 'FIN MES' (fec_eop + 1 día).
+    df_aux['INICIO MES'] = pd.Timestamp(fec_bop.year, fec_bop.month, fec_bop.day)
+    df_aux['FIN MES'] = pd.Timestamp(fec_eop.year, fec_eop.month, fec_eop.day) + datetime.timedelta(days=1)
+
+    # Calcula la fecha de inicio real para cada registro como el máximo entre
+    # la fecha de inicio del período y la fecha de inicio propia del registro.
+    serie_inicio = np.maximum(df_aux['INICIO MES'], df_aux[campo_inicio])
+
+    # Calcula la fecha de fin real para cada registro como el mínimo entre
+    # la fecha de fin del período y la fecha de fin propia del registro.
+    serie_fin = np.minimum(df_aux['FIN MES'], df_aux[campo_fin])
+
+    # Calcula la exposición de cada registro:
+    # - Si la fecha de inicio es posterior a 'fec_eop',
+    #   o la fecha de fin es anterior a 'fec_bop',
+    #   o la fecha de inicio supera a la fecha de fin del registro,
+    #   entonces la exposición es 0.
+    # - En caso contrario, se toma la diferencia de días entre serie_fin y serie_inicio,
+    #   y se normaliza dividiendo por exp_days.
+    serie_exposicion = np.where(
+        (df_aux[campo_inicio] > fec_eop) |
+        (df_aux[campo_fin] < fec_bop) |
+        (df_aux[campo_inicio] > df_aux[campo_fin]),
+        0,
+        ((serie_fin - serie_inicio).dt.days) / exp_days
+    )
+
     return serie_exposicion
 
 
-def completa_campo(df,campo_rellenar,campos_agrupar,parameters: Parameter_Loader,campo_cero=False):
+
+
+def completa_campo(df: pd.DataFrame,campo_rellenar: str,campos_agrupar: list[str],parameters: Parameter_Loader,campo_cero=False) -> pd.DataFrame:
     # if campo_cero==True: df_sin_valores,df_con_valores=df[df[campo_rellenar].isnull()].copy(),df[~df[campo_rellenar].isnull()].copy()
     # elif campo_cero==False: df_sin_valores,df_con_valores=df[(df[campo_rellenar].isnull())|(df[campo_rellenar]==0)].copy(),df[(~df[campo_rellenar].isnull())&(df[campo_rellenar]>0)].copy()
     df_sin_valores,df_con_valores=df[df[campo_rellenar].isnull()].copy(),df[~df[campo_rellenar].isnull()].copy()
@@ -408,7 +584,7 @@ def completa_campo(df,campo_rellenar,campos_agrupar,parameters: Parameter_Loader
     return df_final
     
 
-def completa_campo_total(df,campo_completar,listas_campos_agrupar, parameters: Parameter_Loader,campo_cero=False):
+def completa_campo_total(df: pd.DataFrame,campo_completar: str,listas_campos_agrupar: list[str], parameters: Parameter_Loader,campo_cero=False) -> pd.DataFrame:
     df_aux=df.copy()
     if campo_cero==True: 
         promedio_general=df_aux[~df_aux[campo_completar].isnull()][campo_completar].mean()
@@ -422,11 +598,11 @@ def completa_campo_total(df,campo_completar,listas_campos_agrupar, parameters: P
     return df_aux
 
         
-def corrige_tasas_ges(df_ges_0_0, parameters: Parameter_Loader) -> pd.DataFrame:
+def corrige_tasas_ges(df:pd.DataFrame, parameters: Parameter_Loader) -> pd.DataFrame:
     # Defino registros duplicados y no duplicados
     campo_rut_duplicados: str = parameters.parameters['campo_rut_duplicados']
-    duplicados=df_ges_0_0.loc[df_ges_0_0.duplicated(subset=[campo_rut_duplicados,'POLIZA','CERTIFICADO','NRO_OPERACION','COD_COB'],keep=False)].copy()
-    no_duplicados_ges=df_ges_0_0[~df_ges_0_0.index.isin(duplicados.index)].copy()
+    duplicados=df.loc[df.duplicated(subset=[campo_rut_duplicados,'POLIZA','CERTIFICADO','NRO_OPERACION','COD_COB'],keep=False)].copy()
+    no_duplicados_ges=df[~df.index.isin(duplicados.index)].copy()
     # Creo las tasas agrupadas de los registros duplicados (tomando la tasa promedio)
     tasas_promedio=duplicados[[campo_rut_duplicados,'POLIZA','CERTIFICADO','NRO_OPERACION','TASA_CRED']].groupby([campo_rut_duplicados,'POLIZA','CERTIFICADO','NRO_OPERACION']).agg('mean').reset_index()
     # Elimino la tasa y periodicidad de los duplicados, y luego elimino duplicados
@@ -439,7 +615,7 @@ def corrige_tasas_ges(df_ges_0_0, parameters: Parameter_Loader) -> pd.DataFrame:
     return df_final    
 
 
-def recargos(df, parameters: Parameter_Loader,calcula_recargos=1):
+def recargos(df:pd.DataFrame, parameters: Parameter_Loader,calcula_recargos=1) -> pd.DataFrame:
     ruta_recargos: str = parameters.parameters['ruta_recargos']
     separador_input: str = parameters.parameters['separador_input']
     decimal_input: str = parameters.parameters['decimal_input']
@@ -493,7 +669,7 @@ def recargos(df, parameters: Parameter_Loader,calcula_recargos=1):
     return df_final
     
 
-def cruce_left(df_1, df_2, left_on, right_on, parameters: Parameter_Loader, suffixes=('_df1', '_df2'), informa_no_cruces=1 , name = ''):
+def cruce_left(df_1:pd.DataFrame, df_2:pd.DataFrame, left_on: list[str], right_on: list[str], parameters: Parameter_Loader, suffixes: tuple[str,str]=('_df1', '_df2'), informa_no_cruces: int=1 , name: str = '') -> pd.DataFrame:
     ruta_output: str = parameters.parameters['ruta_output']
     separador_output: str = parameters.parameters['separador_output']
     decimal_output: str = parameters.parameters['decimal_output']
@@ -531,7 +707,7 @@ def cruce_left(df_1, df_2, left_on, right_on, parameters: Parameter_Loader, suff
     return merged_df
 
 
-def identificador_anonimo(df, campos):
+def identificador_anonimo(df:pd.DataFrame, campos: list[str]) -> pd.DataFrame:
     # Crear un DataFrame con combinaciones únicas de los identificadores
     identificadores_unicos = df[campos].drop_duplicates()
     nro_ruts = len(identificadores_unicos)
@@ -547,23 +723,7 @@ def identificador_anonimo(df, campos):
     return df
     
     
-def respaldar_proceso(nombre_archivo, ruta_salidas, elimina_origen=1):
-    # Comprimir archivos del grupo en un archivo zip
-    ruta_zip = os.path.join(ruta_salidas, f'{nombre_archivo}.zip')
-    with ZipFile(ruta_zip, 'w',ZIP_DEFLATED) as zipf:
-        archivo_origen = os.path.join(ruta_salidas, f'{nombre_archivo}.txt')
-        zipf.write(archivo_origen, f'{nombre_archivo}.txt')
-    # Verificar si se debe eliminar el origen
-    if elimina_origen == 1:
-        #Verifica si es un archivo y lo elimina
-        if os.path.isfile(archivo_origen):
-            os.remove(archivo_origen)
-        #Elimina directorio
-        else:
-            shutil.rmtree(archivo_origen)
-
-
-def calculo_fechas_renovacion(df,campo_inicio,campo_fin,campo_anulacion,campo_periodicidad,periodo_cierre,ajuste_pu=1):
+def calculo_fechas_renovacion(df: pd.DataFrame,campo_inicio: str,campo_fin: str,campo_anulacion: str,campo_periodicidad: str,periodo_cierre: int,ajuste_pu: int=1) -> tuple[NDArray[np.int_],NDArray[np.datetime64]]:
     df_aux=df.copy()
     cierre_month=periodo_cierre%100
     cierre_year=int(periodo_cierre/100)
@@ -604,7 +764,7 @@ def automatizacion_querys(files: Parameter_Loader) -> None:
         if aplica==1: 
             ejecuta_query(consulta,periodo_inicio,periodo_fin,diccionario_querys,parametros_split, ruta_extensa)
             
-def ejecuta_query(consulta, periodo_inicio, periodo_fin, diccionario_querys, parametros_split, ruta_extensa,name_file = None):
+def ejecuta_query(consulta: str, periodo_inicio: int, periodo_fin: int, diccionario_querys: dict[str,Any], parametros_split: pd.DataFrame, ruta_extensa: str,name_file: str = None) -> None:
     # Tiempo inicial
     start_time = time.time()
     
@@ -687,7 +847,7 @@ def ejecuta_query(consulta, periodo_inicio, periodo_fin, diccionario_querys, par
         archivo_reporte_global.close()
 
 
-def split_querys(df,parametros_split_filter,ruta_exportar_query,terminacion_archivo,sistema):
+def split_querys(df: pd.DataFrame,parametros_split_filter: pd.DataFrame,ruta_exportar_query: str,terminacion_archivo: str,sistema: str) -> None:
     df_aux=df.copy()
     for index,row in parametros_split_filter.iterrows():
         contrato=row['CONTRATO']

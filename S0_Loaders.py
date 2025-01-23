@@ -15,6 +15,7 @@ class Parameter_Loader:
         :param open_wb: Indica si se debe abrir el archivo Excel con openpyxl al crear la instancia.
         :param ruta_extensa: Campo opcional para almacenar rutas de archivos de texto o uso genérico.
         """
+        # Definimos atributo excel_file
         self.excel_file: str = excel_file
         # Diccionario para almacenar tablas o valores que ya han sido cargados (cache).
         self.parameters: dict[str, Any] = {}

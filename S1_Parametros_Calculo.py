@@ -8,6 +8,16 @@ from pathlib import Path
 from S0_Loaders import Parameter_Loader
 
 def carga_parametros(files: Parameter_Loader, parameter_loader: Parameter_Loader) -> None:
+    """Cargador de parametros del proceso
+
+    Parameters
+    ----------
+    files : Parameter_Loader
+        archivo de la clase Parameter_Loader que contiene informacion de los archivos excel que alimentaran el proceso
+    parameter_loader : Parameter_Loader
+        archivo de la clase Parameter_Loader que contiene informacion de los parametros de la ejecución (1 contrato de reaseguro en particular)
+    """
+    # * Utilizamos funciones de la clase para cargar algunas variables
     parameter_loader.get_reference(reference='tipo_calculo')
     parameter_loader.get_reference(reference='contrato')
     parameter_loader.get_reference(reference='fecha_cierre')
@@ -38,8 +48,7 @@ def carga_parametros(files: Parameter_Loader, parameter_loader: Parameter_Loader
     parameter_loader.get_table_xlsx(sheet_name = 'Diccionario Contratos')
     parameter_loader.wb.close()
 
-    # * Calculos basados en los parametros previamente extraidos
-    # Diccionario de contratos con caracteristicas particulares de cada calculo
+    # Definimos algunas variables que utilizaremos frecuentemente en el guardado de informacion dentro de la clase
     parameter_loader.parameters['diccionario_contratos'] = parameter_loader.parameters['Diccionario Contratos'].set_index('CONTRATO').to_dict()
     diccionario_contratos: dict[str,Any] = parameter_loader.parameters['diccionario_contratos']
     contrato: str = parameter_loader.parameters['contrato']
@@ -48,7 +57,7 @@ def carga_parametros(files: Parameter_Loader, parameter_loader: Parameter_Loader
     ruta_inputs: str = f'{parameter_loader.ruta_extensa}1 Input\\{tipo_calculo}\\'
     periodo: int = fecha_cierre.year*100+fecha_cierre.month
     
-    # # Calculos sobre la variable diccionario_contratos
+    # * Calculos sobre la variable diccionario_contratos
     parameter_loader.parameters['tipo_contrato']=diccionario_contratos['TIPO CONTRATO'][contrato]
     parameter_loader.parameters['tipo_prima']=diccionario_contratos['TIPO PRIMA'][contrato]
     parameter_loader.parameters['clasificacion_contrato']=diccionario_contratos['CLASIFICACION CONTRATO'][contrato]
@@ -58,7 +67,7 @@ def carga_parametros(files: Parameter_Loader, parameter_loader: Parameter_Loader
     parameter_loader.parameters['pivotea_df']=diccionario_contratos['PIVOTEA CONTRATO'][contrato]
     nombre_base: str = diccionario_contratos['NOMBRE BASE'][contrato]
 
-    # # Calculos de fechas para el cierre
+    # * Calculos de fechas para el cierre
     parameter_loader.parameters['fecha_inicio_mes'] = datetime.datetime(fecha_cierre.year,fecha_cierre.month,1)
     parameter_loader.parameters['fecha_cierre_mes_anterior'] = parameter_loader.parameters['fecha_inicio_mes']-datetime.timedelta(days=1)
     parameter_loader.parameters['dias_exposicion'] = (fecha_cierre-parameter_loader.parameters['fecha_inicio_mes']).days+1
@@ -66,7 +75,7 @@ def carga_parametros(files: Parameter_Loader, parameter_loader: Parameter_Loader
     parameter_loader.parameters['periodo_anterior'] = parameter_loader.parameters['periodo'] - (1 if parameter_loader.parameters['periodo']%100>1 else 89)
     parameter_loader.parameters['año_cierre'] = fecha_cierre.year
 
-    # Calculo sobre las rutas de entrada y de salida
+    # * Calculo sobre las rutas de entrada y de salida
     parameter_loader.parameters['ruta_input'] = f'{ruta_inputs}{subcarpeta_input}\\{nombre_base}\\'
     parameter_loader.parameters['ruta_historico_input'] = f'{ruta_inputs}{subcarpeta_historico}\\'
     parameter_loader.parameters['ruta_pyme'] = f'{ruta_inputs}{subcarpeta_pyme}\\'
@@ -79,6 +88,7 @@ def carga_parametros(files: Parameter_Loader, parameter_loader: Parameter_Loader
     parameter_loader.parameters['ruta_output'] = f'{parameter_loader.ruta_extensa}2 Output\\{tipo_calculo}\\{periodo}\\{contrato}\\{subcarpeta_output}\\'
     parameter_loader.parameters['ruta_historico_output'] = f'{parameter_loader.parameters["ruta_output"]}Duplicados Cruce Historico'
 
+    # * Otros calculos
     # Tasa de descuento para calculo de monto asegurado para coberturas de rentas
     parameter_loader.parameters['tdm_mensual'] = (1+tasa_dscto_mensualidades)**(1/12)-1
     # Campo de rut para revisar duplicados
@@ -104,7 +114,7 @@ def carga_parametros(files: Parameter_Loader, parameter_loader: Parameter_Loader
     else:
         archivo_input: str = ''
         archivo_input_ges: str = ''
-
+    # Nombre de la base de expuestos de los sistemas de administracion de BBDD GES e iAxis
     parameter_loader.parameters['archivo_input'] = archivo_input
     parameter_loader.parameters['archivo_input_ges'] = archivo_input_ges
     
@@ -113,7 +123,6 @@ def carga_parametros(files: Parameter_Loader, parameter_loader: Parameter_Loader
     for ruta in rutas:
         Path(parameter_loader.parameters[ruta]).mkdir(parents=True, exist_ok=True)
     if parameter_loader.parameters['tipo_prima'] == 'Prima Unica' : Path(parameter_loader.parameters['ruta_historico_output']).mkdir(parents=True, exist_ok=True)
-
 
     # Comienzo a escribir en el archivo de reporte
     parameter_loader.parameters['archivo_reporte'] = open(f'{parameter_loader.parameters["ruta_output"]}0. Reporte Errores.txt','w')
