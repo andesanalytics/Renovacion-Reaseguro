@@ -98,7 +98,6 @@ def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parame
             df_filtrado_con_inicio=pd.DataFrame()
             # Recorre el dataframe para cada registro de filtro que deba hacer, para ir concatenandolos en el df que necesitamos
             for index, row in tpf_con_inicio_unicos.iterrows():
-                # lista_valores=[353.0, 12.0]
                 lista_valores=list(row)
                 df_filtrado_con_inicio_aux=df_filtrado.copy()
                 tpf_con_inicio_filtrada=tpf_con_inicio.copy()
@@ -110,7 +109,6 @@ def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parame
                 df_filtrado_con_inicio=pd.concat([df_filtrado_con_inicio,df_filtrado_con_inicio_aux])
         else: df_filtrado_con_inicio=pd.DataFrame()
         df_filtrado=pd.concat([df_filtrado_con_inicio,df_filtrado_sin_inicio])
-        # Resta el
         df_a_filtrar: pd.DataFrame=df.loc[df.index.difference(df_filtrado['INDICE'])] # type: ignore
         df_filtrado=df_filtrado.drop(columns=['INDICE'])
         tabla_parametros_a_filtrar=tabla_parametros
@@ -241,32 +239,67 @@ def asignacion_vigencias(df: pd.DataFrame, parameters: Parameter_Loader, tables:
 
 
 def cumulo_riesgo(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Loader, riesgo_cumulo: str, campos_str: str, limite_retencion:Any,tipo_cumulo: str,columna_capital: str) -> pd.DataFrame:
-    """_summary_
+    """
+    Calcula la suma de riesgos (cúmulos) y determina los límites o retenciones aplicables
+    sobre el capital de un conjunto de registros. Dependiendo de la configuración, se
+    cruzan tablas de referencia para determinar la retención y se calculan proporciones
+    para ajustar el capital según correspondan los casos de siniestros pagados o pendientes.
 
     Parameters
     ----------
     df : pd.DataFrame
-        _description_
+        DataFrame principal que contiene la información de pólizas, capital y otros campos
+        necesarios para el cálculo.
     parameters : Parameter_Loader
-        _description_
+        Objeto que contiene parámetros relevantes para la lógica del cálculo, tales como
+        tipo de cálculo, contrato de reaseguro, archivo de reporte, etc.
     tables : Parameter_Loader
-        _description_
+        Objeto utilizado para cargar tablas auxiliares (por ejemplo, archivos de Excel)
+        que contienen información de retenciones o límites.
     riesgo_cumulo : str
-        _description_
+        Identificador del riesgo de cúmulo que se desea procesar (por ejemplo, 'Riesgo1').
     campos_str : str
-        _description_
+        String que contiene los nombres de los campos (separados por comas) que serán
+        utilizados para agrupar los registros a fin de calcular los cúmulos.
     limite_retencion : Any
-        _description_
+        Puede ser un valor numérico que aplica como retención o el nombre de una tabla
+        (hoja de Excel) que contiene valores de retenciones variables según distintos
+        criterios. Si es un string, se intentará buscarlo en `tables`.
     tipo_cumulo : str
-        _description_
+        Nombre de la columna en `df` que se evalúa para filtrar los registros
+        correspondientes al `riesgo_cumulo` especificado.
     columna_capital : str
-        _description_
+        Nombre de la columna en `df` que contiene el valor de capital sobre el cual
+        se aplicará la lógica de retenciones o límites.
 
     Returns
     -------
     pd.DataFrame
-        _description_
+        DataFrame resultante con la información filtrada según el tipo de cúmulo y
+        contrato, y con nuevas columnas que describen:
+        - CUMULO: Suma del capital agrupado.
+        - (Opcional) CUMULO_PAGADOS: Suma del capital para siniestros pagados.
+        - PORCENTAJE: Porcentaje que se aplica para el cálculo de capital posterior,
+          considerando la retención o el límite.
+        - CAPITAL POSTERIOR: Capital ajustado tras aplicar la retención o límite.
+        - (Opcional) PORCENTAJE PAGADOS y PORCENTAJE PENDIENTES: Se generan solamente
+          en caso de que el `tipo_calculo` incluya siniestros. Luego se unifican en
+          la columna final `PORCENTAJE`.
+
+    Notes
+    -----
+    1. La función filtra `df` según las columnas `CONTRATO REASEGURO` y `tipo_cumulo`,
+       y en caso de no encontrar registros, retorna el DataFrame filtrado vacío.
+    2. Se agrupan registros por los campos indicados en `campos_str` para sumar
+       el `columna_capital`, resultando en la columna `CUMULO`.
+    3. El parámetro `limite_retencion` puede ser un valor único o el nombre de una tabla;
+       si es el nombre de una tabla, se carga e incorpora la columna de retenciones.
+    4. En cálculos de siniestros, se separan los siniestros pagados para aplicar
+       porcentajes distintos respecto de los pendientes.
+    5. Se generan reportes de advertencia (mediante la función `escribe_reporta`) en
+       caso de que existan campos faltantes o discrepancias en la unión de los datos.
     """
+    
     tipo_calculo: str = parameters.parameters['tipo_calculo']
     contrato: str = parameters.parameters['contrato']
     archivo_reporte: Any = parameters.parameters['archivo_reporte']
@@ -476,38 +509,171 @@ def cumulos(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Lo
 
 
 def calcula_edad(rut_series: pd.Series,fec_nac_series: pd.Series,fec_corte_series: Any,edad_perdidos: int,edad_tope: int,archivo_reporte: TextIO, reporta_issues: int = 0, edad_inf: int = 0, aplica_edad_prom_cartera: int = 0) -> NDArray[np.int_], Any: # type: ignore
-    """ Funcion de calculo de edad """
-    df_ruts=pd.DataFrame({'RUT':rut_series,'FEC_NAC':fec_nac_series})
-    df_fechas_nac=pd.DataFrame({'RUT':rut_series,'FEC_NAC':fec_nac_series}).groupby(['RUT']).min().reset_index()
-    df_ruts_final=df_ruts.merge(df_fechas_nac,how='left',on='RUT')
-    fec_nac_series=df_ruts_final['FEC_NAC_y']
-    edad_malas=np.where((fec_nac_series.isnull())|(fec_nac_series==datetime.datetime(1900,1,1)),1,0)
-    serie_year=pd.DatetimeIndex(fec_nac_series).year # type: ignore
-    serie_monthday=pd.DatetimeIndex(fec_nac_series).month*100+pd.DatetimeIndex(fec_nac_series).day # type: ignore
-    if type(fec_corte_series)==pd.core.series.Series:  # type: ignore
-        fec_corte_year=pd.DatetimeIndex(fec_corte_series).year
-        fec_corte_monthday=pd.DatetimeIndex(fec_corte_series).month*100+pd.DatetimeIndex(fec_corte_series).day
-    else:
-        fec_corte_year=fec_corte_series.year
-        fec_corte_monthday=fec_corte_series.month*100+fec_corte_series.day
+    """
+    Calcula la edad de cada registro en una serie, basado en la fecha de nacimiento (fec_nac_series)
+    y la fecha de corte (fec_corte_series). Además, aplica reglas de corrección en casos de datos
+    perdidos o inválidos, y puede reportar información adicional sobre los registros problemáticos.
+
+    Parameters
+    ----------
+    rut_series : pd.Series
+        Serie que contiene los RUT (identificador único) de cada registro.
+    fec_nac_series : pd.Series
+        Serie que contiene las fechas de nacimiento de cada registro.
+    fec_corte_series : Any
+        Fecha de corte o serie de fechas de corte para el cálculo de la edad.
+        Puede ser un objeto datetime o un pd.Series de fechas.
+    edad_perdidos : int
+        Edad que se asigna a los registros con fecha de nacimiento nula o mala cuando
+        NO se aplica la edad promedio de la cartera.
+    edad_tope : int
+        Edad máxima permitida. Si la edad calculada supera este valor y no se aplica
+        la edad promedio de la cartera, se recorta a este tope.
+    archivo_reporte : TextIO
+        Objeto de archivo para escribir los reportes de problemas detectados.
+    reporta_issues : int, optional
+        Indica si se debe retornar también el arreglo con los registros que presentan
+        problemas. Valor por defecto = 0 (no se reportan).
+    edad_inf : int, optional
+        Edad mínima permitida. Si la edad calculada es menor a este valor y no se aplica
+        la edad promedio de la cartera, se ajusta a este valor. Valor por defecto = 0.
+    aplica_edad_prom_cartera : int, optional
+        Indica si se utiliza la edad promedio de la cartera para reemplazar las edades
+        perdidas o fuera de rango en lugar de los valores por defecto (edad_perdidos,
+        edad_inf, edad_tope). Valor por defecto = 0 (no se aplica).
+
+    Returns
+    -------
+    NDArray[np.int_]
+        Arreglo unidimensional con la edad final calculada para cada registro.
+    Any, optional
+        Si `reporta_issues` es 1, además de la edad se retorna un arreglo (np.array) que
+        marca con 1 los registros problemáticos y con 0 los registros correctos.
+    """
+    # Se crea un DataFrame base con el RUT y la fecha de nacimiento (posiblemente repetidos).
+    df_ruts = pd.DataFrame({'RUT': rut_series, 'FEC_NAC': fec_nac_series})
     
-    edad_promedio_cartera = np.nanmean(np.where(edad_malas==1,np.nan,fec_corte_year-serie_year+np.where(serie_monthday<=fec_corte_monthday,0,-1)))
+    # Se crea otro DataFrame para obtener la fecha de nacimiento mínima por RUT (manejo de duplicados).
+    df_fechas_nac = (
+        pd.DataFrame({'RUT': rut_series, 'FEC_NAC': fec_nac_series})
+        .groupby(['RUT'])
+        .min()
+        .reset_index()
+    )
+    
+    # Se hace un merge para que cada RUT tenga su fecha de nacimiento mínima.
+    df_ruts_final = df_ruts.merge(df_fechas_nac, how='left', on='RUT')
+    
+    # Se actualiza la serie de fechas de nacimiento con el valor mínimo encontrado.
+    fec_nac_series = df_ruts_final['FEC_NAC_y']
+    
+    # Se identifican fechas nulas o iguales a 1900-01-01 como "malas".
+    edad_malas = np.where(
+        (fec_nac_series.isnull()) | (fec_nac_series == datetime.datetime(1900, 1, 1)),
+        1,
+        0
+    )
+    
+    # Se obtienen año y combinación de mes/día a partir de la fecha de nacimiento.
+    serie_year = pd.DatetimeIndex(fec_nac_series).year  # type: ignore
+    serie_monthday = (
+        pd.DatetimeIndex(fec_nac_series).month * 100
+        + pd.DatetimeIndex(fec_nac_series).day
+    )  # type: ignore
+    
+    # Dependiendo del tipo de fec_corte_series (puede ser serie o fecha puntual),
+    # se calculan el año y la combinación de mes/día.
+    if isinstance(fec_corte_series, pd.core.series.Series):  # type: ignore
+        fec_corte_year = pd.DatetimeIndex(fec_corte_series).year
+        fec_corte_monthday = (
+            pd.DatetimeIndex(fec_corte_series).month * 100
+            + pd.DatetimeIndex(fec_corte_series).day
+        )
+    else:
+        fec_corte_year = fec_corte_series.year
+        fec_corte_monthday = fec_corte_series.month * 100 + fec_corte_series.day
+    
+    # Se calcula la edad promedio en la cartera, ignorando las fechas malas
+    # (usando np.nan en lugar de esos valores).
+    edad_promedio_cartera = np.nanmean(
+        np.where(
+            edad_malas == 1,
+            np.nan,
+            fec_corte_year
+            - serie_year
+            + np.where(serie_monthday <= fec_corte_monthday, 0, -1)
+        )
+    )
+    
+    # Si no se aplica la edad promedio de la cartera, se asigna edad_perdidos a fechas malas.
     if aplica_edad_prom_cartera == 0:
-        edad_series=np.where(edad_malas==1,edad_perdidos,fec_corte_year-serie_year+np.where(serie_monthday<=fec_corte_monthday,0,-1))
-    elif aplica_edad_prom_cartera == 1:   
-        edad_series=np.where(edad_malas==1,edad_promedio_cartera,fec_corte_year-serie_year+np.where(serie_monthday<=fec_corte_monthday,0,-1))
-    # edad_promedio_cartera = edad_series.mean()
-    registros_issues=np.where((edad_malas==1)|(np.where(edad_series>edad_tope,1,0)==1)|(np.where(edad_series<edad_inf,1,0)==1),1,0)
-    cont_fecnac_malas=sum(edad_malas)
-    cont_fecnac_tope=sum(edad_series>edad_tope)
-    if aplica_edad_prom_cartera == 0:
-        edad_series_final=np.where(edad_series>edad_tope,edad_tope,np.where(edad_series<edad_inf,edad_inf,edad_series))
+        edad_series = np.where(
+            edad_malas == 1,
+            edad_perdidos,
+            fec_corte_year
+            - serie_year
+            + np.where(serie_monthday <= fec_corte_monthday, 0, -1)
+        )
+    # Si se aplica la edad promedio de la cartera, se reemplaza la edad de fechas malas por ese promedio.
     elif aplica_edad_prom_cartera == 1:
-        edad_series_final=np.where(edad_series>edad_tope,edad_promedio_cartera,np.where(edad_series<edad_inf,edad_promedio_cartera,edad_series))
-    if cont_fecnac_malas>0: escribe_reporta(archivo_reporte,'La cantidad de registros con la fecha nula o mala es de {} registros'.format(cont_fecnac_malas))
-    if cont_fecnac_tope>0: escribe_reporta(archivo_reporte,'Un total de {} registros tienen edad mayor a 108 año. Fueron topados en 108 para poder encontrar valores en las tablas de incidencia'.format(cont_fecnac_tope))
-    if reporta_issues==0: return edad_series_final
-    else: return edad_series_final,registros_issues
+        edad_series = np.where(
+            edad_malas == 1,
+            edad_promedio_cartera,
+            fec_corte_year
+            - serie_year
+            + np.where(serie_monthday <= fec_corte_monthday, 0, -1)
+        )
+    
+    # Se marcan los registros que presentan algún problema:
+    #    - Fecha mala
+    #    - Edad mayor que el tope
+    #    - Edad menor que el mínimo permitido
+    registros_issues = np.where(
+        (edad_malas == 1)
+        | (np.where(edad_series > edad_tope, 1, 0) == 1)
+        | (np.where(edad_series < edad_inf, 1, 0) == 1),
+        1,
+        0
+    )
+    
+    # Se cuentan la cantidad de fechas malas y de fechas que exceden el tope.
+    cont_fecnac_malas = sum(edad_malas)
+    cont_fecnac_tope = sum(edad_series > edad_tope)
+    
+    # Ajuste final de edades según se aplique o no la edad promedio, y según los límites establecidos.
+    if aplica_edad_prom_cartera == 0:
+        edad_series_final = np.where(
+            edad_series > edad_tope,
+            edad_tope,
+            np.where(edad_series < edad_inf, edad_inf, edad_series)
+        )
+    elif aplica_edad_prom_cartera == 1:
+        edad_series_final = np.where(
+            edad_series > edad_tope,
+            edad_promedio_cartera,
+            np.where(edad_series < edad_inf, edad_promedio_cartera, edad_series)
+        )
+    
+    # Se escriben en el archivo de reporte los conteos de problemas detectados, si los hay.
+    if cont_fecnac_malas > 0:
+        escribe_reporta(
+            archivo_reporte,
+            'La cantidad de registros con la fecha nula o mala es de {} registros'.format(cont_fecnac_malas)
+        )
+    
+    if cont_fecnac_tope > 0:
+        escribe_reporta(
+            archivo_reporte,
+            'Un total de {} registros tienen edad mayor a 108 año. '
+            'Fueron topados en 108 para poder encontrar valores en las tablas de incidencia'.format(cont_fecnac_tope)
+        )
+    
+    # Retorna solamente la serie final con las edades o, si se especifica,
+    # también retorna el array de issues.
+    if reporta_issues == 0:
+        return edad_series_final
+    else:
+        return edad_series_final, registros_issues
     
 def calcula_exposicion(df: pd.DataFrame, campo_inicio: str,campo_fin: str, exp_days: int, fec_bop: datetime.datetime, fec_eop: datetime.datetime) -> NDArray[np.int_]: 
     """
@@ -573,6 +739,46 @@ def calcula_exposicion(df: pd.DataFrame, campo_inicio: str,campo_fin: str, exp_d
 
 
 def completa_campo(df: pd.DataFrame,campo_rellenar: str,campos_agrupar: list[str],parameters: Parameter_Loader,campo_cero=False) -> pd.DataFrame:
+    """
+    Completa valores faltantes en la columna especificada (campo_rellenar) de un DataFrame
+    utilizando el promedio de esa columna agrupado por los campos proporcionados. Además,
+    exporta la tabla de agregación a un archivo CSV.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame de entrada que contiene la columna a rellenar y las columnas para agrupar.
+    campo_rellenar : str
+        Nombre de la columna en el DataFrame `df` cuyos valores faltantes se desean completar.
+    campos_agrupar : list of str
+        Lista de columnas utilizadas para agrupar y calcular el promedio de `campo_rellenar`.
+    parameters : Parameter_Loader
+        Objeto que proporciona, entre otros, la ruta de salida (`ruta_output`),
+        separador (`separador_output`) y formato decimal (`decimal_output`)
+        para la exportación del archivo CSV.
+    campo_cero : bool, optional
+        Parámetro no implementado en la lógica actual de la función. Su valor no
+        altera la forma en que se completan los datos. Por defecto es False.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame con los valores faltantes de `campo_rellenar` completados a partir
+        del promedio calculado sobre los grupos definidos por `campos_agrupar`. 
+        La columna resultante conserva el nombre original (`campo_rellenar`).
+
+    Notes
+    -----
+    1. Para los registros con valor nulo en `campo_rellenar`, la función elimina temporalmente
+       dicha columna, realiza el cruce con los promedios agrupados y luego rellena
+       los valores nulos.
+    2. El DataFrame agrupado (`df_agrupado`) se exporta a un archivo CSV nombrado con
+       el prefijo `"0. Tabla Agrup"`, seguido del nombre de la columna y los campos
+       que intervienen en el agrupamiento.
+    3. La ruta y los parámetros de exportación se toman de `parameters.parameters`.
+    4. Si no hay filas con valores no nulos en `campo_rellenar`, los valores faltantes
+       no podrán ser rellenados con un promedio y permanecerán como nulos.
+    """    
     # if campo_cero==True: df_sin_valores,df_con_valores=df[df[campo_rellenar].isnull()].copy(),df[~df[campo_rellenar].isnull()].copy()
     # elif campo_cero==False: df_sin_valores,df_con_valores=df[(df[campo_rellenar].isnull())|(df[campo_rellenar]==0)].copy(),df[(~df[campo_rellenar].isnull())&(df[campo_rellenar]>0)].copy()
     df_sin_valores,df_con_valores=df[df[campo_rellenar].isnull()].copy(),df[~df[campo_rellenar].isnull()].copy()
@@ -584,21 +790,110 @@ def completa_campo(df: pd.DataFrame,campo_rellenar: str,campos_agrupar: list[str
     return df_final
     
 
-def completa_campo_total(df: pd.DataFrame,campo_completar: str,listas_campos_agrupar: list[str], parameters: Parameter_Loader,campo_cero=False) -> pd.DataFrame:
-    df_aux=df.copy()
-    if campo_cero==True: 
-        promedio_general=df_aux[~df_aux[campo_completar].isnull()][campo_completar].mean()
-        df_aux[campo_completar+'_FINAL']=df_aux[campo_completar]
-    elif campo_cero==False: 
-        promedio_general=df_aux[(~df[campo_completar].isnull())&(df_aux[campo_completar]>0)][campo_completar].mean()
-        df_aux[campo_completar+'_FINAL']=np.where(df_aux[campo_completar]>0,df_aux[campo_completar],np.nan)
+def completa_campo_total(
+    df: pd.DataFrame,
+    campo_completar: str,
+    listas_campos_agrupar: List[str],
+    parameters: Parameter_Loader,
+    campo_cero: bool = False
+) -> pd.DataFrame:
+    """
+    Completa valores nulos o no válidos en un campo específico de un DataFrame mediante
+    agregaciones sucesivas. Finalmente, rellena los valores que siguen nulos con el
+    promedio global calculado.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame base que contiene la información donde se desea completar el campo.
+    campo_completar : str
+        Nombre del campo a completar.
+    listas_campos_agrupar : list of str
+        Lista de campos o combinaciones de campos que se utilizarán para agrupar
+        y completar el campo en cada paso.
+    parameters : Parameter_Loader
+        Objeto que contiene parámetros o configuraciones adicionales utilizadas
+        dentro de la función `completa_campo`.
+    campo_cero : bool, optional
+        Indica si el criterio de asignación de nulos incluye el valor cero.
+        - Si es True, se considera el 0 como un valor válido al calcular el promedio.
+        - Si es False, los ceros se tratarán como valores a reemplazar.
+        Por defecto es False.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame con una nueva columna `<campo_completar>_FINAL` que contiene los
+        valores finales del campo completado.
+
+    Notes
+    -----
+    1. La función crea internamente una copia del DataFrame original (`df_aux`) para
+       no modificar los datos de entrada de manera directa.
+    2. Dependiendo del valor de `campo_cero`, el cálculo del promedio se realiza
+       filtrando o no los valores ceros.
+    3. Después de cada agregación en `completa_campo`, los valores que continúan
+       siendo nulos se completan con un promedio global calculado de manera inicial.
+    4. La función `completa_campo` debe estar disponible en el entorno o importada
+       de manera adecuada para su uso en esta función.
+    """
+    # Se crea una copia del DataFrame original para no modificarlo directamente.
+    df_aux = df.copy()
+
+    # Dependiendo del valor de 'campo_cero', se calcula el promedio general
+    # y se definen los valores iniciales de la columna '_FINAL'.
+    if campo_cero is True:
+        # Cuando 'campo_cero' es True, se consideran todos los valores distintos de nulo.
+        promedio_general = df_aux[~df_aux[campo_completar].isnull()][campo_completar].mean()
+        df_aux[campo_completar + '_FINAL'] = df_aux[campo_completar]
+    else:
+        # Cuando 'campo_cero' es False, se excluyen los ceros y los nulos para el cálculo del promedio.
+        promedio_general = df_aux[
+            (~df_aux[campo_completar].isnull()) & (df_aux[campo_completar] > 0)
+        ][campo_completar].mean()
+
+        # Se asigna NaN a aquellos registros con valor <= 0, dejándolos listos para ser completados.
+        df_aux[campo_completar + '_FINAL'] = np.where(
+            df_aux[campo_completar] > 0,
+            df_aux[campo_completar],
+            np.nan
+        )
+
+    # Para cada campo (o combinación de campos) en la lista de agrupaciones,
+    # se realiza la función 'completa_campo' que completa la columna '_FINAL'.
     for lista in listas_campos_agrupar:
-        df_aux=completa_campo(df_aux,campo_completar+'_FINAL',lista,parameters,campo_cero)
-    df_aux[campo_completar+'_FINAL']=df_aux[campo_completar+'_FINAL'].fillna(promedio_general)
+        df_aux = df_aux=completa_campo(df_aux,campo_completar+'_FINAL',lista,parameters,campo_cero)
+
+    # Luego de completar por grupos, se rellena con el promedio_general
+    # los valores que aún estén nulos.
+    df_aux[campo_completar + '_FINAL'] = df_aux[campo_completar + '_FINAL'].fillna(promedio_general)
+
+    # Se retorna el DataFrame resultante con la nueva columna completada.
     return df_aux
 
         
 def corrige_tasas_ges(df:pd.DataFrame, parameters: Parameter_Loader) -> pd.DataFrame:
+    """
+    Corrige las tasas de un DataFrame, manejando registros duplicados y calculando tasas promedio.
+
+    Esta función identifica registros duplicados basados en un campo de RUT y otros identificadores.
+    Luego, calcula la tasa promedio de los duplicados, elimina las tasas originales y asigna la nueva
+    tasa promedio a los registros únicos, estableciendo además la periodicidad como 'M'.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame que contiene la información de tasas, incluyendo los identificadores
+        relevantes para la detección de duplicados.
+    parameters : Parameter_Loader
+        Objeto que carga parámetros de configuración, incluyendo el campo que define los registros duplicados.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame corregido, donde los registros duplicados tienen su tasa ajustada
+        y la periodicidad establecida a 'M'.
+    """
     # Defino registros duplicados y no duplicados
     campo_rut_duplicados: str = parameters.parameters['campo_rut_duplicados']
     duplicados=df.loc[df.duplicated(subset=[campo_rut_duplicados,'POLIZA','CERTIFICADO','NRO_OPERACION','COD_COB'],keep=False)].copy()
