@@ -1,7 +1,7 @@
 """
 Preprocesamiento de las bases de datos
 """
-# Importamos librerias que vamos a utilizar
+
 import pandas as pd
 import numpy as np
 import datetime
@@ -72,7 +72,7 @@ def pre_procesamiento(parameters: Parameter_Loader, tables: Parameter_Loader) ->
     escribe_reporta(archivo_reporte,'COMIENZA LA LECTURA DE LAS BASES DE DATOS:\n{}'.format(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))))
     print(f'Contrato {contrato}')
     
-    # preprocesamiento de los expuestos (para calculo de prima de reaseguro)
+    # * preprocesamiento de los expuestos (para calculo de prima de reaseguro)
     if tipo_calculo=='Prima de Reaseguro':
         # Inputs de otras fuentes
         polizas_pyme: pd.DataFrame = tables.get_table_txt(file_path=f'{ruta_pyme}1. Inputs Auxiliares\\Polizas Pyme\\Polizas Pyme.txt', decimal=decimal_input, separador=separador_input, campos_fecha=False)
@@ -87,8 +87,9 @@ def pre_procesamiento(parameters: Parameter_Loader, tables: Parameter_Loader) ->
         elif clasificacion_contrato =='Cesantia PU': cols_date,cols_date_ges=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','FECHA_CONTABILIZACION_ANULACION'],['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_PREPAGO','FECHA_RENUNCIA','FECHA_FIN_VIGENCIA']
         elif (tipo_contrato=='Generales')&('Incendio y Sismo' in contrato): cols_date,cols_date_ges=['FECHA_EFECTO','FECHA_VENCIMIENTO','FINI_RENOV_ANUAL','FFIN_RENOV_ANUAL','FECHA_ANULACION'],['FECHA_EFECTO','FECHA_VENCIMIENTO']
         elif (tipo_contrato=='Generales')&(contrato=='Cesantia PR'): cols_date: list[str]=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FINI_RENOV_ANUAL','FFIN_RENOV_ANUAL','FECHA_ANULACION']
-        # LECTURA DE BASES DE DATOS IAXIS
-        if base_iaxis==1: 
+        # * LECTURA DE BASES DE DATOS IAXIS
+        if base_iaxis==1:
+            # Lectura de BBDD y tablas de parametria
             df_iaxis: pd.DataFrame=pd.read_csv(ruta_input+archivo_input,sep=separador_input,decimal=decimal_input,parse_dates=cols_date,date_format='%d-%m-%Y',encoding='latin-1',low_memory=False)
             estados_iaxis: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Estados IAXIS')
             canales_venta: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Canal Venta')
@@ -130,8 +131,9 @@ def pre_procesamiento(parameters: Parameter_Loader, tables: Parameter_Loader) ->
                 saldos_insolutos_detalle: pd.DataFrame = tables.get_table_txt(file_path=f'{ruta_si}1. Inputs Auxiliares\\Saldos Insolutos\\Saldos Insolutos {periodo}.txt', decimal=decimal_input, separador=separador_input, campos_fecha=False)
                 saldos_insolutos_detalle['NRO_OPERACION']=saldos_insolutos_detalle['NRO_OPERACION'].astype(str).str.replace('K','').astype(float)
                 df_iaxis=df_iaxis.merge(saldos_insolutos_detalle,how='left',on=['POLIZA','RUT','NRO_OPERACION'])
-        # LECTURA DE BASES DE DATOS GES
+        # * LECTURA DE BASES DE DATOS GES
         if base_ges==1: 
+            # Lectura de BBDD y tablas de parametria
             df_ges: pd.DataFrame=pd.read_csv(ruta_input+archivo_input_ges,sep=separador_input,decimal=decimal_input,parse_dates=cols_date_ges,date_format='%d-%m-%Y',encoding='latin-1',low_memory=False)
             estados_ges: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Estados GES')
             forma_pago: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Forma Pago')
@@ -194,6 +196,7 @@ def pre_procesamiento(parameters: Parameter_Loader, tables: Parameter_Loader) ->
             df_0_0: pd.DataFrame=df_ges
         else:
             return pd.DataFrame()
+        # * Calculos con las bases de GES a iAxis unidas
         # CALCULOS DE VARIABLES EXTRAS Y CAMBIOS DE NOMBRE DE ALGUNAS VARIABLES
         escribe_reporta(archivo_reporte,'El dataframe input posee una prima neta de {}'.format(np.nansum(df_0_0['IPRIANU'])))
         df_0_0['NRO_OPERACION']=df_0_0['NRO_OPERACION'].fillna(0)
@@ -219,7 +222,7 @@ def pre_procesamiento(parameters: Parameter_Loader, tables: Parameter_Loader) ->
             df_0_1['FEC AUX NA']=0
             df_0_1['FEC AUX NA']=pd.to_datetime(df_0_1['FEC AUX NA'],format = '%d-%m-%Y', errors='coerce')
             df_0_1['FECHA_ANULACION']=np.where(df_0_1['FECHA_ANULACION']<=fecha_cierre,df_0_1['FECHA_ANULACION'],df_0_1['FEC AUX NA'])
-        # CALCULOS GENERICOS PARA BASES DE VIDA PRIMA RECURRENTE
+        # * CALCULOS GENERICOS PARA BASES DE VIDA PRIMA RECURRENTE
         if (tipo_contrato=='Vida')&(contrato!='K-Fijo'):
             meses_renta: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Meses Renta')
             saldo_insoluto: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Saldo Insoluto')
@@ -233,7 +236,7 @@ def pre_procesamiento(parameters: Parameter_Loader, tables: Parameter_Loader) ->
             else: df_0_2['MONTO ASEGURADO']=df_0_2['ICAPITAL']
             df_0_3=df_0_2.merge(saldo_insoluto,how='left',on=['PRODUCTO','CODIGO COBERTURA','BASE'],suffixes=['','_x']) # type: ignore
             df_0_3['APLICA CALCULO SALDO INSOLUTO']=df_0_3['APLICA CALCULO SALDO INSOLUTO'].fillna(0)
-            # ESPECIFICO DE DESG NL: PRODUCTOS CON CAPITAL COMO EL SALDO INSOLUTO DEBEN CALCULARSE
+            # * ESPECIFICO DE DESG NL: PRODUCTOS CON CAPITAL COMO EL SALDO INSOLUTO DEBEN CALCULARSE
             if contrato in ['Desgravamen No Licitado']:
                 df_0_4=df_0_3[df_0_3['APLICA CALCULO SALDO INSOLUTO']==1].copy()
                 df_0_4_resto=df_0_3[df_0_3['APLICA CALCULO SALDO INSOLUTO']==0].copy()
@@ -254,7 +257,7 @@ def pre_procesamiento(parameters: Parameter_Loader, tables: Parameter_Loader) ->
                 df_0_6 = pd.concat([df_resto,df_331]).reset_index(drop=True)
                 df_final_0=df_0_6.copy()
             else: df_final_0=df_0_3.copy()
-            # Tratamiento saldo insoluto para Multisocios
+            # * Tratamiento saldo insoluto para Multisocios
             if contrato in ['Multisocios']:
                 df_0_3['FECHA_FIN_CRED']=np.where(df_0_3['BASE']=='GES',np.maximum(df_0_3['FECHA_VENCIMIENTO'],df_0_3['FECHA_FIN_CRED']),df_0_3['FECHA_VENCIMIENTO'])
                 df_0_3['NCUOTAS']=((df_0_3['FECHA_FIN_CRED']-df_0_3['FECHA_EFECTO']).dt.days/365*12).round(0)
@@ -264,7 +267,7 @@ def pre_procesamiento(parameters: Parameter_Loader, tables: Parameter_Loader) ->
                 df_0_3['SALDO INSOLUTO CALCULADO']=np.where(df_0_3['FECHA_FIN_CRED']<fecha_cierre,0,df_0_3['ICAPITAL']*(1-(1+df_0_3['TASA_CRED_FINAL'])**(-df_0_3['NCUOTAS FALTANTES']))/(1-(1+df_0_3['TASA_CRED_FINAL'])**(-df_0_3['NCUOTAS'])))
                 df_0_3['MONTO ASEGURADO']=np.maximum(df_0_3['SALDO INSOLUTO CALCULADO'],0)
                 df_final_0=df_0_3.copy()
-        # CALCULOS PARA K-FIJO
+        # * CALCULOS PARA K-FIJO
         elif (tipo_contrato=='Vida')&(contrato=='K-Fijo'): 
             df_0_1['EXPOSICION MENSUAL']=1
             escribe_reporta(archivo_reporte,'Calculando edad de renovacion')
@@ -273,12 +276,14 @@ def pre_procesamiento(parameters: Parameter_Loader, tables: Parameter_Loader) ->
             df_0_1['MONTO ASEGURADO']=df_0_1['ICAPITAL']
             df_0_2=df_0_1[df_0_1['FECHA_EFECTO']<=fecha_cierre]
             df_final_0=df_0_2.copy()
+        # * Exportamos Edades con problemas
         # EXPORTO EDADES CON ISSUES
         if 'ISSUE EDAD INGR' in df_final_0.columns:
             if sum(df_final_0['ISSUE EDAD INGR'])>0: df_final_0[df_final_0['ISSUE EDAD INGR']==1].to_csv(ruta_output+'0. Edades de Ingreso a Revisar.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
         if 'ISSUE EDAD RENOV' in df_final_0.columns:
             if sum(df_final_0['ISSUE EDAD RENOV'])>0: df_final_0[df_final_0['ISSUE EDAD RENOV']==1].to_csv(ruta_output+'0. Edades de Renovacion a Revisar.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
         escribe_reporta(archivo_reporte,'El dataframe input luego de ser pre-procesado posee una prima neta de {}'.format(np.nansum(df_final_0['PRIMA NETA ANUAL'])))
+    # * Ultimos filtros
     # Trabajamos con el df_final_0 y hacemos todas las operaciones que debamos hacer en general
     df_final_1=df_final_0[df_final_0['EXPOSICION MENSUAL']>0].copy()
     # ! Solicitud Productos: Trabajar con los asegurados que estan vigentes a fin de mes

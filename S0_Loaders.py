@@ -8,12 +8,16 @@ class Parameter_Loader:
     """
     
     def __init__(self, excel_file: str, open_wb: bool=False, ruta_extensa: str='') -> None:
-        """
-        Constructor de la clase Parameter_Loader.
+        """Constructor de la clase Parameter_Loader.
 
-        :param excel_file: Ruta del archivo Excel (.xlsx) que se usará para cargar parámetros.
-        :param open_wb: Indica si se debe abrir el archivo Excel con openpyxl al crear la instancia.
-        :param ruta_extensa: Campo opcional para almacenar rutas de archivos de texto o uso genérico.
+        Parameters
+        ----------
+        excel_file : str
+            Ruta del archivo Excel (.xlsx) que se usará para cargar parámetros.
+        open_wb : bool, optional
+            Indica si se debe abrir el archivo Excel con openpyxl al crear la instancia., by default False
+        ruta_extensa : str, optional
+            Campo opcional para almacenar rutas de archivos de texto o uso genérico., by default ''
         """
         # Definimos atributo excel_file
         self.excel_file: str = excel_file
@@ -28,13 +32,20 @@ class Parameter_Loader:
             self.wb: openpyxl.Workbook = openpyxl.load_workbook(excel_file)
 
     def get_table_xlsx(self, sheet_name: str) -> pd.DataFrame:
-        """
-        Retorna un DataFrame de la hoja sheet_name del archivo Excel self.excel_file.
+        """Retorna un DataFrame de la hoja sheet_name del archivo Excel self.excel_file.
         Si ya está cargado en self.parameters, se reutiliza la versión en memoria.
-        
-        :param sheet_name: Nombre de la hoja (sheet) en el archivo Excel.
-        :return: DataFrame con el contenido de la hoja especificada.
+
+        Parameters
+        ----------
+        sheet_name : str
+            Nombre de la hoja (sheet) en el archivo Excel.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame con el contenido de la hoja especificada.
         """
+        
         # Carga la hoja de Excel solo si no ha sido cargada antes.
         if sheet_name not in self.parameters:
             self.parameters[sheet_name] = pd.read_excel(self.excel_file, sheet_name=sheet_name)
@@ -44,15 +55,24 @@ class Parameter_Loader:
         return self.parameters[sheet_name]
     
     def get_table_txt(self, file_path: str, decimal: str, separador: str, campos_fecha: Any = '') -> Any:
-        """
-        Retorna un DataFrame cargado desde un archivo de texto (csv, txt, etc.).
+        """Retorna un DataFrame cargado desde un archivo de texto (csv, txt, etc.).
         Si ya está cargado en self.parameters, se reutiliza la versión en memoria.
 
-        :param file_path: Ruta del archivo de texto a cargar.
-        :param decimal: Carácter que define el separador decimal en el archivo.
-        :param separador: Separador de campos en el archivo (por ejemplo, ',', ';', ' ').
-        :param campos_fecha: Columnas que deben ser interpretadas como fechas (opcional).
-        :return: DataFrame con el contenido del archivo.
+        Parameters
+        ----------
+        file_path : str
+            Ruta del archivo de texto a cargar.
+        decimal : str
+            Carácter que define el separador decimal en el archivo.
+        separador : str
+            Separador de campos en el archivo (por ejemplo, ',', ';', ' ').
+        campos_fecha : Any, optional
+            Columnas que deben ser interpretadas como fechas (opcional)., by default ''
+
+        Returns
+        -------
+        Any
+            DataFrame con el contenido del archivo.
         """
         # Carga la tabla de texto solo si no ha sido cargada antes.
         if file_path not in self.parameters:
@@ -71,14 +91,19 @@ class Parameter_Loader:
         return self.parameters[file_path]
     
     def get_reference(self, reference: str) -> Any:
-        """
-        Retorna el valor de una celda definida como nombre en el archivo Excel,
+        """Retorna el valor de una celda definida como nombre en el archivo Excel,
         usando openpyxl y la propiedad defined_names.
 
-        :param reference: Nombre definido en el libro de Excel que hace referencia a una celda.
-        :return: Valor de la celda a la cual apunta el nombre definido.
+        Parameters
+        ----------
+        reference : str
+            Nombre definido en el libro de Excel que hace referencia a una celda.
+
+        Returns
+        -------
+        Any
+            Carga la referencia solo si no ha sido cargada antes.
         """
-        # Carga la referencia solo si no ha sido cargada antes.
         if reference not in self.parameters:
             # Toma la dirección (fila, columna) de la referencia y obtiene el valor de la celda.
             self.parameters[reference] = self.wb[

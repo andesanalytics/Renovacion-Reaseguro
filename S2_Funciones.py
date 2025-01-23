@@ -508,7 +508,7 @@ def cumulos(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Lo
 
 
 
-def calcula_edad(rut_series: pd.Series,fec_nac_series: pd.Series,fec_corte_series: Any,edad_perdidos: int,edad_tope: int,archivo_reporte: TextIO, reporta_issues: int = 0, edad_inf: int = 0, aplica_edad_prom_cartera: int = 0) -> NDArray[np.int_], Any: # type: ignore
+def calcula_edad(rut_series: pd.Series,fec_nac_series: pd.Series,fec_corte_series: Any,edad_perdidos: int,edad_tope: int,archivo_reporte: TextIO, reporta_issues: int = 0, edad_inf: int = 0, aplica_edad_prom_cartera: int = 0) -> tuple[NDArray[np.int_], Any]: # type: ignore
     """
     Calcula la edad de cada registro en una serie, basado en la fecha de nacimiento (fec_nac_series)
     y la fecha de corte (fec_corte_series). Además, aplica reglas de corrección en casos de datos
@@ -569,16 +569,13 @@ def calcula_edad(rut_series: pd.Series,fec_nac_series: pd.Series,fec_corte_serie
     
     # Se identifican fechas nulas o iguales a 1900-01-01 como "malas".
     edad_malas = np.where(
-        (fec_nac_series.isnull()) | (fec_nac_series == datetime.datetime(1900, 1, 1)),
-        1,
-        0
-    )
+        (fec_nac_series.isnull()) | (fec_nac_series == datetime.datetime(1900, 1, 1)),1,0)
     
     # Se obtienen año y combinación de mes/día a partir de la fecha de nacimiento.
     serie_year = pd.DatetimeIndex(fec_nac_series).year  # type: ignore
     serie_monthday = (
-        pd.DatetimeIndex(fec_nac_series).month * 100
-        + pd.DatetimeIndex(fec_nac_series).day
+        pd.DatetimeIndex(fec_nac_series).month * 100 # type: ignore
+        + pd.DatetimeIndex(fec_nac_series).day # type: ignore
     )  # type: ignore
     
     # Dependiendo del tipo de fec_corte_series (puede ser serie o fecha puntual),
@@ -638,7 +635,7 @@ def calcula_edad(rut_series: pd.Series,fec_nac_series: pd.Series,fec_corte_serie
     
     # Se cuentan la cantidad de fechas malas y de fechas que exceden el tope.
     cont_fecnac_malas = sum(edad_malas)
-    cont_fecnac_tope = sum(edad_series > edad_tope)
+    cont_fecnac_tope = sum(edad_series > edad_tope) # type: ignore
     
     # Ajuste final de edades según se aplique o no la edad promedio, y según los límites establecidos.
     if aplica_edad_prom_cartera == 0:
@@ -671,7 +668,7 @@ def calcula_edad(rut_series: pd.Series,fec_nac_series: pd.Series,fec_corte_serie
     # Retorna solamente la serie final con las edades o, si se especifica,
     # también retorna el array de issues.
     if reporta_issues == 0:
-        return edad_series_final
+        return edad_series_final # type: ignore
     else:
         return edad_series_final, registros_issues
     
@@ -911,6 +908,23 @@ def corrige_tasas_ges(df:pd.DataFrame, parameters: Parameter_Loader) -> pd.DataF
 
 
 def recargos(df:pd.DataFrame, parameters: Parameter_Loader,calcula_recargos=1) -> pd.DataFrame:
+    """Calcula Recargos en la prima de reaseguro asociados a asegurados con sobreprima o extraprima
+    Tambien tiene la opcion de solo marcar los registros que tienen recargo, sin calcularlo directamente
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe de asegurados
+    parameters : Parameter_Loader
+        Objeto que contiene parámetros relevantes para la lógica del cálculo
+    calcula_recargos : int, optional
+        binario que indica si calculamos o no los recargos, by default 1
+
+    Returns
+    -------
+    pd.DataFrame
+        dataframe de asegurados con recargos
+    """
     ruta_recargos: str = parameters.parameters['ruta_recargos']
     separador_input: str = parameters.parameters['separador_input']
     decimal_input: str = parameters.parameters['decimal_input']
@@ -965,6 +979,32 @@ def recargos(df:pd.DataFrame, parameters: Parameter_Loader,calcula_recargos=1) -
     
 
 def cruce_left(df_1:pd.DataFrame, df_2:pd.DataFrame, left_on: list[str], right_on: list[str], parameters: Parameter_Loader, suffixes: tuple[str,str]=('_df1', '_df2'), informa_no_cruces: int=1 , name: str = '') -> pd.DataFrame:
+    """Permite cruzar mediante merge left dos tablas
+
+    Parameters
+    ----------
+    df_1 : pd.DataFrame
+        primer df
+    df_2 : pd.DataFrame
+        segundo df
+    left_on : list[str]
+        campos a cruzar primer df
+    right_on : list[str]
+        campos a cruzar segundo df
+    parameters : Parameter_Loader
+        Objeto con los parametros necesarios para calcular el cotnrato especifico
+    suffixes : tuple[str,str], optional
+        sufijos del cruce, by default ('_df1', '_df2')
+    informa_no_cruces : int, optional
+        binario que indica si informamos o no los datos que no cruzaron, by default 1
+    name : str, optional
+        nombre del archivo que tienen los datos que no cruzaron, by default ''
+
+    Returns
+    -------
+    pd.DataFrame
+        df cruzado
+    """
     ruta_output: str = parameters.parameters['ruta_output']
     separador_output: str = parameters.parameters['separador_output']
     decimal_output: str = parameters.parameters['decimal_output']
@@ -1003,6 +1043,20 @@ def cruce_left(df_1:pd.DataFrame, df_2:pd.DataFrame, left_on: list[str], right_o
 
 
 def identificador_anonimo(df:pd.DataFrame, campos: list[str]) -> pd.DataFrame:
+    """Anonimizador de datos
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe con la informacion (datos que vamos a anonimizar y datos que mantendremos)
+    campos : list[str]
+        campos que voy a a anonimizar
+
+    Returns
+    -------
+    pd.DataFrame
+        dataframe con el campo de anonimizacion
+    """
     # Crear un DataFrame con combinaciones únicas de los identificadores
     identificadores_unicos = df[campos].drop_duplicates()
     nro_ruts = len(identificadores_unicos)
@@ -1019,6 +1073,30 @@ def identificador_anonimo(df:pd.DataFrame, campos: list[str]) -> pd.DataFrame:
     
     
 def calculo_fechas_renovacion(df: pd.DataFrame,campo_inicio: str,campo_fin: str,campo_anulacion: str,campo_periodicidad: str,periodo_cierre: int,ajuste_pu: int=1) -> tuple[NDArray[np.int_],NDArray[np.datetime64]]:
+    """calcula fechas de renovacion para contratos de reaseguro de prima anual renovable
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        dataframe con la informacion de asegurados expuestos
+    campo_inicio : str
+        campo donde inician vigencia los registros
+    campo_fin : str
+        campo que indica donde los registros terminan vigencia
+    campo_anulacion : str
+        campos que indica la fecha de anulacion de los asegurados
+    campo_periodicidad : str
+        indica la periodicidad: Si es prima unica no se calcula nada
+    periodo_cierre : int
+        periodo de cierre
+    ajuste_pu : int, optional
+        binario que indica si realizamos cambios o no a los asegurados de prima unica, by default 1
+
+    Returns
+    -------
+    tuple[NDArray[np.int_],NDArray[np.datetime64]]
+        entrega dos vectores, uno con la fecha de inicio de renovacion y otro con la fecha de fin de renovacion
+    """
     df_aux=df.copy()
     cierre_month=periodo_cierre%100
     cierre_year=int(periodo_cierre/100)
@@ -1044,6 +1122,13 @@ def calculo_fechas_renovacion(df: pd.DataFrame,campo_inicio: str,campo_fin: str,
 
 
 def automatizacion_querys(files: Parameter_Loader) -> None:
+    """Ejecucion de querys de extraccion de data necesaria para el proceso
+
+    Parameters
+    ----------
+    files : Parameter_Loader
+        Contiene informacion del archivo de querys que debemos mirar para este proceso
+    """
     # Parametros de la consulta
     querys: Parameter_Loader = Parameter_Loader(excel_file=files.parameters['archivo_querys'], open_wb=True, ruta_extensa='')
     ruta_extensa: str = files.ruta_extensa
@@ -1060,6 +1145,25 @@ def automatizacion_querys(files: Parameter_Loader) -> None:
             ejecuta_query(consulta,periodo_inicio,periodo_fin,diccionario_querys,parametros_split, ruta_extensa)
             
 def ejecuta_query(consulta: str, periodo_inicio: int, periodo_fin: int, diccionario_querys: dict[str,Any], parametros_split: pd.DataFrame, ruta_extensa: str,name_file: str = None) -> None:
+    """Ejecuta una query especifica
+
+    Parameters
+    ----------
+    consulta : str
+        nombre de la consulta a ejecutar
+    periodo_inicio : int
+        Periodo donde inicia la consulta, en caso de ser necesario
+    periodo_fin : int
+        Periodo donde termina la consulta, en caso de ser necesario
+    diccionario_querys : dict[str,Any]
+        Diccionario que contiene toda la informacion relevante de todas las consultas que vamos a ejecutar
+    parametros_split : pd.DataFrame
+        Cuando una query requiere ser aperturada, este dataframe tiene la informacion que necesitamos
+    ruta_extensa : str
+        agregado a la ruta de exportacion
+    name_file : str, optional
+        Nombre, by default None
+    """
     # Tiempo inicial
     start_time = time.time()
     
@@ -1143,6 +1247,21 @@ def ejecuta_query(consulta: str, periodo_inicio: int, periodo_fin: int, dicciona
 
 
 def split_querys(df: pd.DataFrame,parametros_split_filter: pd.DataFrame,ruta_exportar_query: str,terminacion_archivo: str,sistema: str) -> None:
+    """Proceso que apertura una query extraida en caso de ser necesario
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        consulta original extraida
+    parametros_split_filter : pd.DataFrame
+        informacion de la apertura que debemos hacer
+    ruta_exportar_query : str
+        Ruta a exportar
+    terminacion_archivo : str
+        Terminacion del archivo de exportacion
+    sistema : str
+        Sistema de Adm de BBDD (GES o IAXIS)
+    """
     df_aux=df.copy()
     for index,row in parametros_split_filter.iterrows():
         contrato=row['CONTRATO']

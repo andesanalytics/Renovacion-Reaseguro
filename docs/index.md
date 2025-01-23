@@ -7,7 +7,7 @@ Esta es la documentación de mi proyecto.
 - [`Clase Loaders`](S0_Loaders.md)
 - [`Parametros de Calculo`](S1_Parametros_Calculo.md)
 <!-- - [Funciones](S2_Funciones.md) -->
-<!-- - [Preprocesamiento](S3_Pre_Procesamiento.md) -->
+- [Preprocesamiento](S3_Pre_Procesamiento.md)
 - [Renovacion](S4_Calculos_Renovacion.md)
 <!-- - [`Funcion Principal`](S5_Automatizacion_Calculos.md) -->
 - [Docstrings](Docstrings.md)
