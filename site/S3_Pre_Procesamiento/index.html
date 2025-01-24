@@ -1,0 +1,992 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="http://Documentacion_Renovacion:Reaseguro.com/S3_Pre_Procesamiento/">
+      
+      
+        <link rel="prev" href="../S1_Parametros_Calculo/">
+      
+      
+        <link rel="next" href="../S4_Calculos_Renovacion/">
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.5.49">
+    
+    
+      
+        <title>Preprocesamiento - Documentacion</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.6f8fc17f.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#modulo-s3_pre_procesamiento" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Documentacion" class="md-header__button md-logo" aria-label="Documentacion" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Documentacion
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Preprocesamiento
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="green" data-md-color-accent="deep-purple"  aria-label="Dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="deep-orange"  aria-label="Light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Documentacion" class="md-nav__button md-logo" aria-label="Documentacion" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Documentacion
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../S0_Loaders/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Clase Loaders
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../S1_Parametros_Calculo/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Parametros de Calculo
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../S2_Funciones.md" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Funciones
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Preprocesamiento
+  </span>
+  
+
+      </a>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../S4_Calculos_Renovacion/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Renovacion
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../S5_Automatizacion_Calculos.md" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Funcion Principal
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Docstrings/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Docstrings
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+<h1 id="modulo-s3_pre_procesamiento">Modulo S3_Pre_Procesamiento</h1>
+<p>El módulo se encarga de <strong>preparar y limpiar</strong> las bases de datos para su análisis. Esto incluye tareas como:</p>
+<ul>
+<li><strong>Eliminar datos innecesarios</strong>.</li>
+<li><strong>Corregir errores</strong> en los datos.</li>
+<li><strong>Transformar formatos</strong> de datos para facilitar su uso.</li>
+</ul>
+<p>El objetivo es asegurar que los datos sean <strong>consistentes y utilizables</strong> para posteriores análisis o modelados.</p>
+<h1 id="funcion-pre_procesamiento">Funcion <code>pre_procesamiento</code></h1>
+<p>La función <code>pre_procesamiento</code> se encarga de <strong>leer datos</strong> de dos sistemas de administración de bases de datos (GES e IAXIS) y generar una <strong>salida unificada</strong>. Esta salida es necesaria para realizar cálculos relacionados con el <strong>reaseguro</strong>, como primas o siniestros.</p>
+<p>Antes de los cálculos, se realizan <strong>transformaciones</strong> en los datos, que varían según el tipo de contrato de reaseguro (prima única o recurrente) y el tratamiento de siniestros (Vida y Generales).</p>
+<h3 id="parametros">Parámetros:</h3>
+<ul>
+<li><strong>parameters</strong>: Contiene los parámetros del cálculo.</li>
+<li><strong>tables</strong>: Incluye las tablas necesarias para calcular los contratos de reaseguro.</li>
+</ul>
+<h3 id="retorno">Retorno:</h3>
+<ul>
+<li>Devuelve un <code>pd.DataFrame</code> que está listo para ser utilizado en el cálculo de primas o siniestros de reaseguro.</li>
+</ul>
+<h2 id="definicion-de-variables-comunes">Definición de Variables Comunes</h2>
+<p>Se establecen variables que se usarán frecuentemente en el bloque de parámetros de una función. Estas variables facilitarán la gestión y el uso de datos dentro de la función.</p>
+<p>Las instrucciones de código extraen información sobre un contrato desde un conjunto de parámetros. </p>
+<ul>
+<li><code>tipo_calculo</code>, <code>tipo_contrato</code>, <code>contrato</code> y <code>clasificacion_contrato</code> son variables que almacenan diferentes características del contrato, como su tipo y clasificación. </li>
+</ul>
+<p>Esta información es fundamental para entender las <strong>características del contrato</strong>.</p>
+<pre><code class="language-python">tipo_calculo: str = parameters.parameters['tipo_calculo']
+tipo_contrato: str = parameters.parameters['tipo_contrato']
+contrato: str = parameters.parameters['contrato']
+clasificacion_contrato: str = parameters.parameters['clasificacion_contrato']
+</code></pre>
+<p>Las instrucciones de código extraen <strong>valores de fechas</strong> y un <strong>período</strong> desde un conjunto de parámetros. </p>
+<ul>
+<li><code>fecha_cierre</code> almacena la fecha de cierre.</li>
+<li><code>fecha_inicio_mes</code> guarda la fecha de inicio del mes.</li>
+<li><code>periodo</code> contiene un valor entero que representa un período específico.</li>
+</ul>
+<p>Estos valores son esenciales para gestionar <strong>fechas y períodos</strong> en el contexto del código.</p>
+<pre><code class="language-python">fecha_cierre: datetime.datetime = parameters.parameters['fecha_cierre']
+fecha_inicio_mes: datetime.datetime = parameters.parameters['fecha_inicio_mes']
+periodo: int = parameters.parameters['periodo']
+</code></pre>
+<p>El código asigna valores a variables a partir de un conjunto de parámetros. Cada variable representa un campo específico:</p>
+<ul>
+<li><strong>campo_rut_duplicados</strong>: Almacena un valor relacionado con RUT duplicados.</li>
+<li><strong>edad_casos_perdidos</strong>: Guarda la edad de casos que se han perdido.</li>
+<li><strong>dias_exposicion</strong>: Indica la cantidad de días de exposición.</li>
+<li><strong>tdm_mensual</strong>: Contiene un valor de tasa de descuento mensual.</li>
+</ul>
+<pre><code class="language-python">campo_rut_duplicados: str = parameters.parameters['campo_rut_duplicados']
+edad_casos_perdidos: int = parameters.parameters['edad_casos_perdidos']
+dias_exposicion: int = parameters.parameters['dias_exposicion']
+tdm_mensual: float = parameters.parameters['tdm_mensual']
+archivo_reporte: Any = parameters.parameters['archivo_reporte']
+</code></pre>
+<p>El código extrae valores de un conjunto de parámetros. Se definen cuatro variables:</p>
+<ul>
+<li><strong>base_iaxis</strong>: Almacena un valor entero relacionado con la base de un eje.</li>
+<li><strong>base_ges</strong>: Almacena un valor entero relacionado con la base de gestión.</li>
+<li><strong>archivo_input</strong>: Almacena el nombre de un archivo de entrada.</li>
+<li><strong>archivo_input_ges</strong>: Almacena el nombre de un archivo de entrada para gestión.</li>
+</ul>
+<p>Estos valores son</p>
+<pre><code class="language-python">base_iaxis: int = parameters.parameters['base_iaxis']
+base_ges: int = parameters.parameters['base_ges']
+archivo_input: str = parameters.parameters['archivo_input']
+archivo_input_ges: str = parameters.parameters['archivo_input_ges']
+</code></pre>
+<p>El código extrae configuraciones de un conjunto de parámetros. </p>
+<ul>
+<li><strong><code>separador_input</code></strong>: Define el carácter que separa los valores en la entrada.</li>
+<li><strong><code>decimal_input</code></strong>: Especifica el símbolo utilizado para los decimales en la entrada.</li>
+<li><strong><code>separador_output</code></strong>: Establece el carácter que separará los valores en la salida.</li>
+<li><strong><code>decimal_output</code></strong>: Indica el símbolo para los decimales en</li>
+</ul>
+<pre><code class="language-python">separador_input: str = parameters.parameters['separador_input']
+decimal_input: str = parameters.parameters['decimal_input']
+separador_output: str = parameters.parameters['separador_output']
+decimal_output: str = parameters.parameters['decimal_output']
+</code></pre>
+<p>Las instrucciones de código definen varias <strong>rutas</strong> que se utilizarán para entradas y salidas de datos. Cada ruta se obtiene de un conjunto de <strong>parámetros</strong>. Las variables son:</p>
+<ul>
+<li><code>ruta_output</code>: Ruta de salida.</li>
+<li><code>ruta_input</code>: Ruta de entrada.</li>
+<li><code>ruta_pyme</code>: Ruta específica para pymes.</li>
+<li><code>ruta_otros</code>: Ruta para otros datos.</li>
+<li><code>ruta_si</code>: Ruta para información específica.</li>
+<li><code>ruta_uso_seguro</code>:</li>
+</ul>
+<pre><code class="language-python">ruta_output: str = parameters.parameters['ruta_output']
+ruta_input: str = parameters.parameters['ruta_input']
+ruta_pyme: str = parameters.parameters['ruta_pyme']
+ruta_otros: str = parameters.parameters['ruta_otros']
+ruta_si: str = parameters.parameters['ruta_si']
+ruta_uso_seguro: str = parameters.parameters['ruta_uso_seguro']
+</code></pre>
+<p>El código realiza <strong>escrituras</strong> tanto en un archivo de reportes como en la pantalla. </p>
+<ol>
+<li>
+<p><strong><code>escribe_reporta(...)</code></strong>: Registra un mensaje en el archivo especificado, indicando el inicio de la lectura de las bases de datos junto con la fecha y hora actual.</p>
+</li>
+<li>
+<p><strong><code>print(...)</code></strong>: Muestra en la pantalla el número de contrato.</p>
+</li>
+</ol>
+<p>Ambas acciones son parte de un proceso de <strong>registro y visualización</strong> de información.</p>
+<pre><code class="language-python">escribe_reporta(archivo_reporte,'COMIENZA LA LECTURA DE LAS BASES DE DATOS:\n{}'.format(time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))))
+print(f'Contrato {contrato}')
+</code></pre>
+<h2 id="preprocesamiento-de-expuestos-para-calculo-de-prima-de-reaseguro">Preprocesamiento de Expuestos para Cálculo de Prima de Reaseguro</h2>
+<p>Este proceso se encarga de preparar los datos de los expuestos, lo cual es esencial para calcular de manera adecuada la prima de reaseguro. Se asegura de que la información esté en el formato correcto y lista para su análisis posterior.</p>
+<pre><code class="language-python">if tipo_calculo=='Prima de Reaseguro':
+</code></pre>
+<p>El código carga datos desde diferentes archivos en formato de texto y Excel para su posterior uso. </p>
+<ul>
+<li><strong><code>polizas_pyme</code></strong>: Carga datos de un archivo de texto relacionado con pólizas Pyme.</li>
+<li><strong><code>cti</code></strong>: Carga datos de otro archivo de texto llamado CTI.</li>
+<li><strong><code>innominadas</code></strong>: Carga datos de un archivo de texto sobre pólizas innominadas.</li>
+<li><strong><code>cobs_ges</code></strong>: Carga</li>
+</ul>
+<pre><code class="language-python">polizas_pyme: pd.DataFrame = tables.get_table_txt(file_path=f'{ruta_pyme}1. Inputs Auxiliares\\Polizas Pyme\\Polizas Pyme.txt', decimal=decimal_input, separador=separador_input, campos_fecha=False)
+cti: pd.DataFrame = tables.get_table_txt(file_path=f'{ruta_otros}1. Inputs Auxiliares\\Otros\\CTI.txt', decimal=decimal_input, separador=separador_input, campos_fecha=False)
+innominadas: pd.DataFrame = tables.get_table_txt(file_path=f'{ruta_otros}1. Inputs Auxiliares\\Otros\\polizas_innominadas.txt', decimal=decimal_input, separador=separador_input, campos_fecha=False)
+cobs_ges: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Coberturas GES')
+if contrato=='Complementario UC': uso_seguro_com_uc: pd.DataFrame = tables.get_table_txt(file_path=f'{ruta_uso_seguro}1. Inputs Auxiliares\\Com UC\\COM UC Uso del Seguro Hist {periodo}.txt', decimal=decimal_input, separador=separador_input, campos_fecha=False)
+</code></pre>
+<p>El código establece diferentes listas de campos de fecha (<code>cols_date</code> y <code>cols_date_ges</code>) según el tipo de contrato y su clasificación. </p>
+<ul>
+<li>Si el <strong>tipo de contrato</strong> es <code>'Vida'</code>, se definen campos específicos basados en si el contrato está en una lista determinada.</li>
+<li>Para la <strong>clasificación de contrato</strong> <code>'Cesantia PU'</code>, se asignan campos similares a los de <code>'Vida'</code>.</li>
+<li>En el caso de <strong>contratos generales</strong>, se asignan</li>
+</ul>
+<pre><code class="language-python">if (tipo_contrato=='Vida')&amp;(contrato not in ['K-Fijo','Desgravamen No Licitado','Multisocios']): cols_date,cols_date_ges=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FINI_RENOV_ANUAL','FFIN_RENOV_ANUAL','FECHA_ANULACION'],['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO']
+elif (tipo_contrato=='Vida')&amp;(contrato in ['Desgravamen No Licitado','Multisocios']): cols_date,cols_date_ges=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FINI_RENOV_ANUAL','FFIN_RENOV_ANUAL','FECHA_ANULACION'],['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_INICIO_CRED','FECHA_FIN_CRED']
+elif (tipo_contrato=='Vida')&amp;(contrato=='K-Fijo'): cols_date,cols_date_ges=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','FECHA_CONTABILIZACION_ANULACION'],['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_PREPAGO','FECHA_RENUNCIA','FECHA_FIN_VIGENCIA']
+elif clasificacion_contrato =='Cesantia PU': cols_date,cols_date_ges=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_ANULACION','FECHA_CONTABILIZACION_ANULACION'],['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FECHA_PREPAGO','FECHA_RENUNCIA','FECHA_FIN_VIGENCIA']
+elif (tipo_contrato=='Generales')&amp;('Incendio y Sismo' in contrato): cols_date,cols_date_ges=['FECHA_EFECTO','FECHA_VENCIMIENTO','FINI_RENOV_ANUAL','FFIN_RENOV_ANUAL','FECHA_ANULACION'],['FECHA_EFECTO','FECHA_VENCIMIENTO']
+elif (tipo_contrato=='Generales')&amp;(contrato=='Cesantia PR'): cols_date: list[str]=['FEC_NAC','FECHA_EFECTO','FECHA_VENCIMIENTO','FINI_RENOV_ANUAL','FFIN_RENOV_ANUAL','FECHA_ANULACION']
+</code></pre>
+<h3 id="lectura-de-bases-de-datos-iaxis">Lectura de Bases de Datos IAXIS</h3>
+<p>Este código se encarga de <strong>leer datos</strong> de una base de datos específica llamada IAXIS. A través de este proceso, se obtienen y organizan los datos necesarios para su posterior análisis o uso en otras aplicaciones.</p>
+<pre><code class="language-python">if base_iaxis==1:
+</code></pre>
+<p>El código realiza las siguientes acciones:</p>
+<ol>
+<li>
+<p><strong>Carga de datos</strong>: Lee un archivo CSV y lo almacena en un DataFrame llamado <code>df_iaxis</code>, utilizando parámetros como el separador, el formato decimal y la codificación.</p>
+</li>
+<li>
+<p><strong>Obtención de tablas</strong>: Extrae dos tablas de un archivo Excel, una llamada <code>estados_iaxis</code> y otra <code>canales_venta</code>, a partir de las hojas especificadas.</p>
+</li>
+<li>
+<p><strong>Conversión de fechas</strong></p>
+</li>
+</ol>
+<pre><code class="language-python">df_iaxis: pd.DataFrame=pd.read_csv(ruta_input+archivo_input,sep=separador_input,decimal=decimal_input,parse_dates=cols_date,date_format='%d-%m-%Y',encoding='latin-1',low_memory=False)
+estados_iaxis: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Estados IAXIS')
+canales_venta: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Canal Venta')
+for col in cols_date:
+if df_iaxis[col].dtype!='datetime64[ns]': df_iaxis[col]=pd.to_datetime(df_iaxis[col],format = '%d-%m-%Y', errors='coerce')
+</code></pre>
+<p>El código realiza <strong>transformaciones iniciales</strong> en un DataFrame llamado <code>df_iaxis</code>. </p>
+<ol>
+<li><strong>Redondeo</strong>: Las columnas <code>IPRIANU</code> e <code>ICAPITAL</code> se redondean a 4 decimales.</li>
+<li><strong>Asignación de valor</strong>: Se establece la columna <code>BASE</code> con el valor <code>'IAXIS'</code>.</li>
+<li><strong>Cálculo de periodo</strong>: Si existe la columna `FECHA_CONTABILIZACION</li>
+</ol>
+<pre><code class="language-python">df_iaxis['IPRIANU']=round(df_iaxis['IPRIANU'],4)
+df_iaxis['ICAPITAL']=round(df_iaxis['ICAPITAL'],4)
+df_iaxis['BASE']='IAXIS'
+if 'FECHA_CONTABILIZACION_ANULACION' in df_iaxis.columns:df_iaxis['PERIODO_CONTABILIZACION']=df_iaxis['FECHA_CONTABILIZACION_ANULACION'].dt.year*100+df_iaxis['FECHA_CONTABILIZACION_ANULACION'].dt.month
+if 'NRO_OPERACION' not in df_iaxis.columns:df_iaxis['NRO_OPERACION']=0
+else: df_iaxis['NRO_OPERACION']=df_iaxis['NRO_OPERACION'].fillna(0)
+</code></pre>
+<p>El código verifica si la columna <strong><code>CANAL_VENTA</code></strong> existe en el DataFrame <strong><code>df_iaxis</code></strong>. Si es así, se realiza una combinación (merge) con otro DataFrame llamado <strong><code>canales_venta</code></strong> utilizando la columna <strong><code>CANAL_VENTA</code></strong> como clave. Esto permite agregar información sobre el nombre del canal de venta al DataFrame original.</p>
+<pre><code class="language-python">if 'CANAL_VENTA' in df_iaxis.columns: df_iaxis=df_iaxis.merge(canales_venta,how='left',on=['CANAL_VENTA'])
+</code></pre>
+<p>El código verifica si el <strong>contrato</strong> es igual a <code>'Complementario UC'</code>. Si es así, se actualiza la columna <strong>'USO SEGURO'</strong> en el DataFrame <strong>df_iaxis</strong>. </p>
+<p>Se asigna un valor de <strong>1</strong> si se cumplen dos condiciones:
+1. El valor en la columna <strong>'SSEGURO'</strong> de <strong>df_iaxis</strong> está presente en la columna <strong>'SSEGURO'</strong> de **</p>
+<pre><code class="language-python">if contrato=='Complementario UC': df_iaxis['USO SEGURO']= np.where((df_iaxis['SSEGURO'].isin(uso_seguro_com_uc['SSEGURO']))&amp;(df_iaxis['MOTIVO_BAJA']==306),1,0)
+</code></pre>
+<p>El código verifica si la columna <strong><code>PERIOD_TASA</code></strong> existe en el DataFrame <strong><code>df_iaxis</code></strong>. Si está presente, ajusta los valores de la columna <strong><code>TASA_CRED</code></strong> según el valor de <strong><code>PERIOD_TASA</code></strong>:</p>
+<ul>
+<li>Si <strong><code>PERIOD_TASA</code></strong> es 12, divide <strong><code>TASA_CRED</code></strong> entre 100.</li>
+<li>Si <strong><code>PERIOD_TASA</code></strong> es 1</li>
+</ul>
+<pre><code class="language-python">if 'PERIOD_TASA' in df_iaxis.columns:df_iaxis['TASA_CRED']=np.where(df_iaxis['PERIOD_TASA']==12,df_iaxis['TASA_CRED']/100,np.where(df_iaxis['PERIOD_TASA']==1,(1+df_iaxis['TASA_CRED']/100)**(1/12)-1,df_iaxis['TASA_CRED']/100))
+</code></pre>
+<p>El código asigna un valor a una nueva columna llamada <strong>CTI</strong> en el DataFrame <strong>df_iaxis</strong>. </p>
+<ul>
+<li>Se utiliza <code>np.where</code> para verificar si los productos en la columna <strong>PRODUCTO</strong> de <strong>df_iaxis</strong> están presentes en la lista de productos de otro DataFrame llamado <strong>cti</strong>.</li>
+<li>Si un producto está en la lista, se asigna el valor <strong>1</strong>; de lo contrario, se asigna <strong>0</strong>.</li>
+</ul>
+<p>Esto</p>
+<pre><code class="language-python">df_iaxis['CTI']=np.where(df_iaxis['PRODUCTO'].isin(list(cti['PRODUCTO'])),1,0)
+</code></pre>
+<p>El código se encarga de <strong>validar la unicidad</strong> de los registros en un conjunto de datos llamado <code>df_iaxis</code>. </p>
+<ol>
+<li><strong>Definición de columnas</strong>: Selecciona las columnas a considerar para identificar duplicados, dependiendo del tipo de contrato.</li>
+<li><strong>Identificación de duplicados</strong>: Busca registros duplicados en <code>df_iaxis</code> y los almacena en <code>duplicados_iaxis</code>.</li>
+<li><strong>Reporte de duplicados</strong>: Si</li>
+</ol>
+<pre><code class="language-python">cols_dup_iaxis = ['SSEGURO','COD_COB','NRIESGO'] if tipo_contrato=='Vida' else ['SSEGURO','COD_COB']
+duplicados_iaxis=df_iaxis.loc[df_iaxis.duplicated(subset=cols_dup_iaxis,keep=False)]
+if not (duplicados_iaxis.empty):
+escribe_reporta(archivo_reporte,'El dataframe iAxis de entrada contiene {} registros duplicados. Revisar!'.format(duplicados_iaxis.shape[0]))
+duplicados_iaxis.to_csv(ruta_output+'0.1.1 Duplicados iAxis.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
+df_iaxis=df_iaxis.drop_duplicates()
+duplicados_drop_iaxis=df_iaxis.loc[df_iaxis.duplicated(subset=cols_dup_iaxis,keep=False)]
+if not (duplicados_drop_iaxis.empty):
+escribe_reporta(archivo_reporte,'Luego de eliminar duplicados, la base input de iAxis contiene {} registros duplicados. Revisar!'.format(duplicados_drop_iaxis.shape[0]))
+duplicados_drop_iaxis.to_csv(ruta_output+'0.1.2 Duplicados iAxis Drop.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
+</code></pre>
+<p>El código realiza <strong>uniones</strong> y <strong>filtrados</strong> en un conjunto de datos llamado <code>df_iaxis</code> utilizando información de otras tablas.</p>
+<ol>
+<li><strong>Unión con <code>estados_iaxis</code></strong>: Se agrega información sobre el estado, manteniendo solo las filas que coinciden.</li>
+<li><strong>Filtrado</strong>: Se seleccionan solo las filas donde <code>APLICA ESTADO</code> es igual a 1.</li>
+<li>**Unión con `polizas_pyme</li>
+</ol>
+<pre><code class="language-python">df_iaxis=df_iaxis.merge(estados_iaxis[['ESTADO','APLICA ESTADO']],how='left',on=['ESTADO'])
+df_iaxis=df_iaxis[df_iaxis['APLICA ESTADO']==1].copy()
+df_iaxis=df_iaxis.merge(polizas_pyme,how='left',on=['POLIZA'])
+df_iaxis['TIPO_POLIZA_LETRA']=np.where(df_iaxis['TIPO_POLIZA_LETRA'].isnull(),np.where(df_iaxis['TIPO_POLIZA']==1,'I','C'),df_iaxis['TIPO_POLIZA_LETRA'])
+</code></pre>
+<p>El código realiza un <strong>tratamiento de saldos insolutos</strong> específicamente para el contrato de <strong>desgravamen no licitado</strong>. </p>
+<ol>
+<li><strong>Carga de datos</strong>: Se obtiene un conjunto de datos desde un archivo de texto que contiene información sobre saldos insolutos.</li>
+<li><strong>Transformación de datos</strong>: Se modifica la columna <code>NRO_OPERACION</code> para eliminar caracteres no deseados y convertirla a un tipo numérico.</li>
+<li><strong>Fusión de datos</strong>: Se</li>
+</ol>
+<pre><code class="language-python">if contrato =='Desgravamen No Licitado':
+saldos_insolutos_detalle: pd.DataFrame = tables.get_table_txt(file_path=f'{ruta_si}1. Inputs Auxiliares\\Saldos Insolutos\\Saldos Insolutos {periodo}.txt', decimal=decimal_input, separador=separador_input, campos_fecha=False)
+saldos_insolutos_detalle['NRO_OPERACION']=saldos_insolutos_detalle['NRO_OPERACION'].astype(str).str.replace('K','').astype(float)
+df_iaxis=df_iaxis.merge(saldos_insolutos_detalle,how='left',on=['POLIZA','RUT','NRO_OPERACION'])
+</code></pre>
+<h3 id="lectura-de-bases-de-datos-ges">Lectura de Bases de Datos GES</h3>
+<p>Este código se encarga de <strong>leer</strong> información de las bases de datos del sistema GES. A través de este proceso, se obtienen datos que serán utilizados en análisis posteriores.</p>
+<pre><code class="language-python">if base_ges==1:
+</code></pre>
+<p>El código se encarga de <strong>leer datos</strong> desde diferentes fuentes:</p>
+<ol>
+<li>
+<p><strong>Carga de un archivo CSV</strong>: Se utiliza <code>pd.read_csv</code> para leer un archivo y almacenarlo en <code>df_ges</code>, especificando el separador, formato decimal, y otras configuraciones.</p>
+</li>
+<li>
+<p><strong>Carga de hojas de Excel</strong>: Se obtienen tres tablas desde un archivo Excel usando <code>tables.get_table_xlsx</code>, almacenándolas en <code>estados_ges</code>, <code>forma_pago</code></p>
+</li>
+</ol>
+<pre><code class="language-python">df_ges: pd.DataFrame=pd.read_csv(ruta_input+archivo_input_ges,sep=separador_input,decimal=decimal_input,parse_dates=cols_date_ges,date_format='%d-%m-%Y',encoding='latin-1',low_memory=False)
+estados_ges: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Estados GES')
+forma_pago: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Forma Pago')
+planes_ges: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Planes GES')
+for col in cols_date_ges:
+if df_ges[col].dtype!='datetime64[ns]': df_ges[col]=pd.to_datetime(df_ges[col],format = '%d-%m-%Y', errors='coerce')
+</code></pre>
+<p>La instrucción <code>df_ges['CTI']=0</code> <strong>asigna un valor de 0</strong> a una nueva columna llamada <strong>CTI</strong> en el DataFrame <strong>df_ges</strong>. Esto se realiza como parte de <strong>transformaciones iniciales</strong> en los datos.</p>
+<pre><code class="language-python">df_ges['CTI']=0
+</code></pre>
+<p>El código verifica si la columna <strong><code>PERIOD_TASA</code></strong> existe en el DataFrame <strong><code>df_ges</code></strong>. Si está presente, ajusta los valores de la columna <strong><code>TASA_CRED</code></strong> según el tipo de periodo:</p>
+<ul>
+<li>Si <strong><code>PERIOD_TASA</code></strong> es <strong><code>'M'</code></strong> (mensual), divide <strong><code>TASA_CRED</code></strong> entre 100.</li>
+<li>Si es <strong><code>'A'</code></strong> (anual</li>
+</ul>
+<pre><code class="language-python">if 'PERIOD_TASA' in df_ges.columns:df_ges['TASA_CRED']=np.where(df_ges['PERIOD_TASA']=='M',df_ges['TASA_CRED']/100,np.where(df_ges['PERIOD_TASA']=='A',(1+df_ges['TASA_CRED']/100)**(1/12)-1,df_ges['TASA_CRED']/100))
+</code></pre>
+<p>Si la variable <code>clasificacion_contrato</code> es igual a <strong>'Cesantia PU'</strong>, se ejecuta la función <code>corrige_tasas_ges</code> sobre el DataFrame <code>df_ges</code> utilizando los parámetros definidos en <strong><code>parameters</code></strong>. </p>
+<p>Esto <strong>corrige las tasas</strong> específicamente para los contratos de <strong>prima única de cesantía</strong>.</p>
+<pre><code class="language-python">if clasificacion_contrato=='Cesantia PU': df_ges=corrige_tasas_ges(df_ges, parameters)
+</code></pre>
+<p>El código realiza una <strong>validación de unicidad</strong> en un conjunto de datos llamado <code>df_ges</code>. </p>
+<ol>
+<li>
+<p><strong>Identificación de duplicados</strong>: Busca registros duplicados basándose en ciertas columnas (<code>campo_rut_duplicados</code>, <code>POLIZA</code>, <code>CERTIFICADO</code>, <code>NRO_OPERACION</code>, <code>COD_COB</code>). Si encuentra duplicados, genera un reporte indicando cuántos registros duplicados hay y los guarda en un archivo CSV.</p>
+</li>
+<li>
+<p>**Eliminación</p>
+</li>
+</ol>
+<pre><code class="language-python">duplicados_ges=df_ges.loc[df_ges.duplicated(subset=[campo_rut_duplicados,'POLIZA','CERTIFICADO','NRO_OPERACION','COD_COB'],keep=False)]
+if not (duplicados_ges.empty):
+escribe_reporta(archivo_reporte,'El dataframe GES de entrada contiene {} registros duplicados. Revisar!'.format(duplicados_ges.shape[0]))
+duplicados_ges.to_csv(ruta_output+'0. Duplicados GES.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
+df_ges=df_ges.drop_duplicates()
+duplicados_drop_ges=df_ges.loc[df_ges.duplicated(subset=['POLIZA','CERTIFICADO','NRO_OPERACION','COD_COB'],keep=False)]
+if not (duplicados_drop_ges.empty):
+escribe_reporta(archivo_reporte,'Luego de eliminar duplicados, la base input de GES contiene {} registros duplicados. Revisar!'.format(duplicados_drop_ges.shape[0]))
+duplicados_drop_ges.to_csv(ruta_output+'0. Duplicados GES Drop.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
+</code></pre>
+<p>El código establece condiciones para crear la variable <strong>FECHA_ANULACION</strong> en un DataFrame llamado <code>df_ges</code>, dependiendo del tipo de contrato.</p>
+<ol>
+<li>
+<p>Si el contrato no es <strong>'Cesantia PU'</strong> y no es <strong>'K-Fijo'</strong>, se asigna a <strong>FECHA_ANULACION</strong> una fecha basada en <strong>FECHA_VENCIMIENTO</strong> dentro de un rango específico.</p>
+</li>
+<li>
+<p>Si el contrato es <strong>'K-Fijo'</strong>, se inicializa</p>
+</li>
+</ol>
+<pre><code class="language-python">if (clasificacion_contrato !='Cesantia PU')&amp;(contrato!='K-Fijo'): df_ges['FECHA_ANULACION']=pd.to_datetime(np.where((df_ges['FECHA_VENCIMIENTO']&gt;=fecha_inicio_mes)&amp;(df_ges['FECHA_VENCIMIENTO']&lt;=fecha_cierre),df_ges['FECHA_VENCIMIENTO'].astype(str),''), format = '%Y-%m-%d', errors='coerce')
+elif contrato=='K-Fijo':
+df_ges['FEC AUX NA']=0
+df_ges['FEC AUX NA']=pd.to_datetime(df_ges['FEC AUX NA'],format = '%d-%m-%Y', errors='coerce')
+df_ges['FECHA_ANULACION']=np.where(~df_ges['FECHA_RENUNCIA'].isnull(),df_ges['FECHA_RENUNCIA'],np.where(~df_ges['FECHA_PREPAGO'].isnull(),df_ges['FECHA_PREPAGO'],np.where(df_ges['FECHA_FIN_VIGENCIA']==df_ges['FECHA_VENCIMIENTO'],df_ges['FEC AUX NA'],df_ges['FECHA_FIN_VIGENCIA'])))
+df_ges=df_ges.drop(columns=['FEC AUX NA'],axis=1)
+df_ges['PERIODO_CONTABILIZACION']=np.where(df_ges['FECHA_ANULACION'].isnull(),np.nan,np.maximum(df_ges['PERIODO_CONTABILIZACION'],df_ges['FECHA_ANULACION'].dt.year*100+df_ges['FECHA_ANULACION'].dt.month))
+df_ges['FECHA_CONTABILIZACION_ANULACION']=pd.to_datetime(df_ges['PERIODO_CONTABILIZACION'],format='%Y%m', errors='coerce')+ MonthEnd(0)
+</code></pre>
+<p>Las instrucciones de código realizan <strong>transformaciones finales</strong> en un conjunto de datos llamado <code>df_ges</code>. </p>
+<ol>
+<li><strong>Unión de datos</strong>: Se combina <code>df_ges</code> con otro conjunto de datos <code>forma_pago</code> usando una clave común llamada <code>FORMA_PAGO</code>.</li>
+<li><strong>Creación de nueva columna</strong>: Se copia el contenido de la columna <code>TIPO_POLIZA</code> a una nueva columna llamada <code>TIPO_POLIZA_LETRA</code>.</li>
+<li><strong>Condicional</strong>:</li>
+</ol>
+<pre><code class="language-python">df_ges=df_ges.merge(forma_pago,how='left',on='FORMA_PAGO')
+df_ges['TIPO_POLIZA_LETRA']=df_ges['TIPO_POLIZA']
+df_ges['TIPO_POLIZA']=np.where(df_ges['TIPO_POLIZA_LETRA']=='C',2,1)
+df_ges['BASE']='GES'
+</code></pre>
+<p>El código asigna valores a las columnas <code>FINI_RENOV_ANUAL</code> y <code>FFIN_RENOV_ANUAL</code> del DataFrame <code>df_ges</code>. Estos valores se obtienen mediante la función <code>calculo_fechas_renovacion</code>, que calcula las fechas de renovación de contratos de prima recurrente utilizando varias columnas como parámetros, incluyendo <code>FECHA_EFECTO</code>, <code>FECHA_VENCIMIENTO</code>, <code>FECHA_ANULACION</code> y `FORMA_PAGO_COD</p>
+<pre><code class="language-python">df_ges['FINI_RENOV_ANUAL'],df_ges['FFIN_RENOV_ANUAL']=calculo_fechas_renovacion(df_ges, 'FECHA_EFECTO', 'FECHA_VENCIMIENTO', 'FECHA_ANULACION','FORMA_PAGO_CODIGO', periodo)
+</code></pre>
+<p>El código ajusta el valor de la columna <strong>IPRIANU</strong> en el DataFrame <strong>df_ges</strong>. Si el <strong>tipo_contrato</strong> es igual a <strong>'Vida'</strong>, multiplica <strong>IPRIANU</strong> por <strong>FACTOR ANUALIZACION</strong>. </p>
+<p>Esto se utiliza para la <strong>anualización de la prima de vida GES</strong>.</p>
+<pre><code class="language-python">if tipo_contrato=='Vida':df_ges['IPRIANU']=df_ges['IPRIANU']*df_ges['FACTOR ANUALIZACION']
+</code></pre>
+<p>El código realiza las siguientes acciones:</p>
+<ol>
+<li><strong>Combina dos conjuntos de datos</strong>: Utiliza <code>merge</code> para unir <code>df_ges</code> con <code>planes_ges</code> basándose en las columnas <code>PRODUCTO</code> y <code>PLAN_DESC</code>. Esto se hace de manera <strong>izquierda</strong> (<code>how='left'</code>), lo que significa que se conservarán todos los registros de <code>df_ges</code> y se agregarán los datos de <code>planes_ges</code> donde coincidan.</li>
+</ol>
+<p>2.</p>
+<pre><code class="language-python">df_ges=df_ges.merge(planes_ges,how='left',on=['PRODUCTO','PLAN_DESC'])
+df_ges['COD_PLAN']=df_ges['COD_PLAN'].fillna(0)
+</code></pre>
+<p>El código realiza las siguientes acciones:</p>
+<ol>
+<li>
+<p><strong>Fusión de datos</strong>: Combina <code>df_ges</code> con <code>estados_ges</code>, añadiendo la columna <code>APLICA ESTADO</code> donde el <code>ESTADO</code> coincide. Esto permite identificar si un estado aplica o no.</p>
+</li>
+<li>
+<p><strong>Filtrado</strong>: Se queda solo con las filas donde <code>APLICA ESTADO</code> es igual a 1, es decir, aquellos estados que sí aplican.</p>
+</li>
+<li>
+<p>**</p>
+</li>
+</ol>
+<pre><code class="language-python">df_ges=df_ges.merge(estados_ges[['ESTADO','APLICA ESTADO']],how='left',on=['ESTADO'])
+df_ges=df_ges[df_ges['APLICA ESTADO']==1].copy()
+if 'POLVIGENTE' in df_ges.columns: df_ges=df_ges[~df_ges['POLVIGENTE'].isin([9])]
+</code></pre>
+<p>El código realiza un <strong>tratamiento específico</strong> para los saldos insolutos en el caso de un contrato denominado <strong>"Desgravamen No Licitado"</strong>. </p>
+<ol>
+<li>Asigna los valores de la columna <code>POLASECFI</code> a una nueva columna llamada <code>ICAPITAL</code>.</li>
+<li>Elimina las columnas <code>POLCFIORI</code> y <code>POLASECFI</code> del DataFrame.</li>
+<li>Convierte la columna <code>NRO_OPERACION</code> a un tipo numérico,</li>
+</ol>
+<pre><code class="language-python">if contrato=='Desgravamen No Licitado':
+df_ges['ICAPITAL']=df_ges['POLASECFI']
+df_ges.drop(columns=['POLCFIORI','POLASECFI'],axis=1,inplace=True)
+df_ges['NRO_OPERACION']=pd.to_numeric(df_ges['NRO_OPERACION'],errors = 'coerce')
+df_ges=df_ges.merge(saldos_insolutos_detalle,how='left',on=['POLIZA','RUT','NRO_OPERACION'])
+</code></pre>
+<p>El código combina diferentes conjuntos de datos (dataframes) según ciertas condiciones. </p>
+<ul>
+<li>Si <strong>ambas bases</strong> (<code>base_iaxis</code> y <code>base_ges</code>) están activas (igual a 1), se <strong>unen</strong> los dataframes <code>df_iaxis</code> y <code>df_ges</code>.</li>
+<li>Si solo <code>base_iaxis</code> está activa, se utiliza únicamente <code>df_iaxis</code>.</li>
+<li>Si solo <code>base_ges</code> está activa, se utiliza `df_</li>
+</ul>
+<pre><code class="language-python">if (base_iaxis==1)&amp;(base_ges==1):
+df_0_0: pd.DataFrame=pd.concat([df_iaxis,df_ges],axis=0)
+elif base_iaxis==1:
+df_0_0: pd.DataFrame=df_iaxis
+elif base_ges==1:
+df_0_0: pd.DataFrame=df_ges
+else:
+return pd.DataFrame()
+</code></pre>
+<h3 id="calculos-con-las-bases-de-ges-a-iaxis-unidas">Cálculos con las bases de GES a iAxis unidas</h3>
+<p>Se realizarán cálculos utilizando las bases de datos de GES y iAxis que han sido combinadas. Esto permitirá obtener resultados más completos y precisos a partir de la información unificada.</p>
+<p>El código realiza <strong>cálculos de variables adicionales</strong> y <strong>cambia el nombre de algunas variables</strong> en un conjunto de datos. </p>
+<ol>
+<li><strong>Reporte de prima neta</strong>: Se registra la suma de una columna específica en un archivo de reporte.</li>
+<li><strong>Relleno de valores nulos</strong>: Se reemplazan valores nulos en la columna <code>NRO_OPERACION</code> por 0.</li>
+<li><strong>Limpieza de texto</strong>: Se eliminan espacios en blanco de</li>
+</ol>
+<pre><code class="language-python">escribe_reporta(archivo_reporte,'El dataframe input posee una prima neta de {}'.format(np.nansum(df_0_0['IPRIANU'])))
+df_0_0['NRO_OPERACION']=df_0_0['NRO_OPERACION'].fillna(0)
+if 'CANAL_DESC' in df_0_0.columns: df_0_0['CANAL_DESC']=df_0_0['CANAL_DESC'].str.strip()
+df_0_1=df_0_0.merge(cobs_ges[['COD_COB','COB_GES']],how='left',on=['COD_COB'],suffixes=['','_x']) # type: ignore
+df_0_1['COB_GES']=np.where(df_0_1['COB_GES'].isnull(),df_0_1['COD_COB'],df_0_1['COB_GES'])
+df_0_1.rename(columns={'COD_PLAN':'PLAN','IPRIANU':'PRIMA NETA ANUAL','COB_GES':'CODIGO COBERTURA','COD_COB':'CODIGO COBERTURA IAXIS'},inplace=True)
+df_0_1['POL_PROD']=np.where((df_0_1['TIPO_POLIZA_LETRA']=='I')|(df_0_1['CTI']==1),df_0_1['PRODUCTO'],df_0_1['POLIZA'])
+df_0_1['FECHA CIERRE']=fecha_cierre
+df_0_1['FECHA CIERRE']=df_0_1['FECHA CIERRE'].astype(df_0_1['FECHA_EFECTO'].dtype)
+df_0_1['INNOMINADA'] = np.where(df_0_1['POLIZA'].isin(list(innominadas['POLIZA'])),1,0)
+df_0_1['EDAD'],df_0_1['ISSUE EDAD']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],fecha_cierre,edad_casos_perdidos,108,archivo_reporte,reporta_issues=1, edad_inf = 18, aplica_edad_prom_cartera = 1)
+</code></pre>
+<p>Si la columna <strong>'FEC_NAC'</strong> está presente en el DataFrame <strong>df_0_1</strong>, se registra un mensaje indicando que se está calculando la edad de ingreso. Luego, se calculan dos nuevas columnas: <strong>'EDAD INGRESO'</strong> y <strong>'ISSUE EDAD INGR'</strong>. Este cálculo se basa en el <strong>RUT</strong>, la <strong>FEC_NAC</strong> y la <strong>FECHA_EFECTO</strong>, entre otros parámetros.</p>
+<pre><code class="language-python">if 'FEC_NAC' in df_0_1.columns:
+escribe_reporta(archivo_reporte,'Calculando edad de ingreso')
+df_0_1['EDAD INGRESO'],df_0_1['ISSUE EDAD INGR']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],df_0_1['FECHA_EFECTO'],edad_casos_perdidos,108,archivo_reporte,reporta_issues=1, edad_inf = 18, aplica_edad_prom_cartera = 1)
+</code></pre>
+<p>El código realiza cálculos específicos de fechas según el tipo de contrato. </p>
+<ul>
+<li>
+<p>Si el contrato <strong>no es</strong> 'Cesantia PU' y <strong>no es</strong> 'K-Fijo', se calculan las fechas de renovación y se asignan a las columnas <code>FINI_RENOV_ANUAL</code> y <code>FFIN_RENOV_ANUAL</code>. Luego, se determina la fecha de fin de exposición (<code>FECHA FIN EXP</code>) considerando la fecha de anulación y la fecha de vencimiento.</p>
+</li>
+<li>
+<p>Si</p>
+</li>
+</ul>
+<pre><code class="language-python">if (clasificacion_contrato !='Cesantia PU')&amp;(contrato!='K-Fijo'):
+df_0_1['FINI_RENOV_ANUAL'],df_0_1['FFIN_RENOV_ANUAL']=calculo_fechas_renovacion(df_0_1, 'FECHA_EFECTO', 'FECHA_VENCIMIENTO', 'FECHA_ANULACION','FORMA_PAGO_CODIGO', periodo,0)
+df_0_1['FECHA FIN EXP']=np.where(~df_0_1['FECHA_ANULACION'].isnull(),df_0_1['FECHA_ANULACION'],np.where(df_0_1['FECHA_VENCIMIENTO'].isnull(),df_0_1['FFIN_RENOV_ANUAL'],df_0_1['FECHA_VENCIMIENTO']))
+else:
+df_0_1['FEC AUX NA']=0
+df_0_1['FEC AUX NA']=pd.to_datetime(df_0_1['FEC AUX NA'],format = '%d-%m-%Y', errors='coerce')
+df_0_1['FECHA_ANULACION']=np.where(df_0_1['FECHA_ANULACION']&lt;=fecha_cierre,df_0_1['FECHA_ANULACION'],df_0_1['FEC AUX NA'])
+</code></pre>
+<h3 id="calculos-genericos-para-bases-de-vida-prima-recurrente">Cálculos Genéricos para Bases de Vida Prima Recurrente</h3>
+<p>Este código se encarga de realizar <strong>cálculos</strong> relacionados con las bases de vida para primas recurrentes. Estos cálculos son fundamentales para determinar el costo y la viabilidad de productos de seguros que requieren pagos periódicos.</p>
+<pre><code class="language-python">if (tipo_contrato=='Vida')&amp;(contrato!='K-Fijo'):
+meses_renta: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Meses Renta')
+saldo_insoluto: pd.DataFrame = tables.get_table_xlsx(sheet_name = 'Saldo Insoluto')
+df_0_1['EXPOSICION MENSUAL']=calcula_exposicion(df_0_1,'FECHA_EFECTO','FECHA FIN EXP',dias_exposicion,fecha_inicio_mes,fecha_cierre)
+df_0_1['TIPO ASEGURADO']=np.where((df_0_1['RUT'].isnull())|(df_0_1['RUT']==df_0_1['RUT_CONTRATANTE']),'Titular','Adicional')
+escribe_reporta(archivo_reporte,'Calculando edad de renovacion')
+if contrato == 'Desgravamen No Licitado': df_0_1['EDAD RENOVACION'],df_0_1['ISSUE EDAD RENOV']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],fecha_inicio_mes,edad_casos_perdidos,108,archivo_reporte,reporta_issues=1,edad_inf = 18, aplica_edad_prom_cartera = 1)
+else: df_0_1['EDAD RENOVACION'],df_0_1['ISSUE EDAD RENOV']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],df_0_1['FINI_RENOV_ANUAL'],edad_casos_perdidos,108,archivo_reporte,reporta_issues=1, edad_inf = 18, aplica_edad_prom_cartera = 1)
+df_0_2=df_0_1.merge(meses_renta,how='left',on=['CODIGO COBERTURA'],suffixes=['','_x']) # type: ignore
+if contrato=='Desgravamen No Licitado': df_0_2['MONTO ASEGURADO']=np.where(df_0_2['MESES RENTA']==1,1,(1-(1+tdm_mensual)**(-df_0_2['MESES RENTA']))/tdm_mensual)*df_0_2['ICAPITAL']
+else: df_0_2['MONTO ASEGURADO']=df_0_2['ICAPITAL']
+df_0_3=df_0_2.merge(saldo_insoluto,how='left',on=['PRODUCTO','CODIGO COBERTURA','BASE'],suffixes=['','_x']) # type: ignore
+df_0_3['APLICA CALCULO SALDO INSOLUTO']=df_0_3['APLICA CALCULO SALDO INSOLUTO'].fillna(0)
+</code></pre>
+<h4 id="calculo-de-productos-con-capital">Cálculo de Productos con Capital</h4>
+<p>Este código se encargará de calcular ciertos productos financieros que tienen en cuenta el <strong>saldo insoluto</strong>. Esto es especialmente relevante para aquellos productos que dependen del capital pendiente.</p>
+<pre><code class="language-python">if contrato in ['Desgravamen No Licitado']:
+df_0_4=df_0_3[df_0_3['APLICA CALCULO SALDO INSOLUTO']==1].copy()
+df_0_4_resto=df_0_3[df_0_3['APLICA CALCULO SALDO INSOLUTO']==0].copy()
+df_0_4['FECHA_FIN_CRED']=np.where(df_0_4['BASE']=='GES',np.maximum(df_0_4['FECHA_VENCIMIENTO'],df_0_4['FECHA_FIN_CRED']),df_0_4['FECHA_VENCIMIENTO'])
+df_0_4['NCUOTAS']=((df_0_4['FECHA_FIN_CRED']-df_0_4['FECHA_EFECTO']).dt.days/365*12).round(0)
+df_0_4['NCUOTAS FALTANTES']=((df_0_4['FECHA_FIN_CRED']-fecha_cierre).dt.days/365*12).round(0)
+df_0_4['PERIODO_EFECTO']=df_0_4['FECHA_EFECTO'].dt.year*100+df_0_4['FECHA_EFECTO'].dt.month
+df_0_4=completa_campo_total(df_0_4,'TASA_CRED',[['PRODUCTO','PERIODO_EFECTO'],['PERIODO_EFECTO']], parameters)
+df_0_4['SALDO INSOLUTO CALCULADO']=df_0_4['ICAPITAL']*(1-(1+df_0_4['TASA_CRED_FINAL'])**(-df_0_4['NCUOTAS FALTANTES']))/(1-(1+df_0_4['TASA_CRED_FINAL'])**(-df_0_4['NCUOTAS']))
+df_0_4['MONTO ASEGURADO']=np.where(df_0_4['SALDO_INSOLUTO']&gt;0,df_0_4['SALDO_INSOLUTO'],np.maximum(df_0_4['SALDO INSOLUTO CALCULADO'],0))
+df_0_5=pd.concat([df_0_4,df_0_4_resto],axis=0)
+df_0_5 = df_0_5.reset_index(drop=True)
+</code></pre>
+<p>El código realiza las siguientes acciones:</p>
+<ol>
+<li>
+<p><strong>Filtrado de datos</strong>: Se crea un nuevo conjunto de datos <code>df_331</code> que contiene solo las filas donde el producto es 331, la base es 'IAXIS' y el código de cobertura es 12.</p>
+</li>
+<li>
+<p><strong>Exclusión de datos</strong>: Se genera <code>df_resto</code>, que incluye todas las filas de <code>df_0_5</code> que no están en <code>df_331</code>.</p>
+</li>
+<li>
+<p>**S</p>
+</li>
+</ol>
+<pre><code class="language-python">df_331 = df_0_5[(df_0_5['PRODUCTO']==331)&amp;(df_0_5['BASE']=='IAXIS')&amp;(df_0_5['CODIGO COBERTURA']==12)].copy()
+df_resto = df_0_5[~df_0_5.index.isin(df_331.index)].copy()
+df_331['PRIMA NETA ANUAL'] = df_331.groupby('SSEGURO')['PRIMA NETA ANUAL'].transform('sum')
+df_331 = df_331[df_331['CODIGO COBERTURA IAXIS']==1200].copy()
+df_0_6 = pd.concat([df_resto,df_331]).reset_index(drop=True)
+df_final_0=df_0_6.copy()
+else: df_final_0=df_0_3.copy()
+</code></pre>
+<h4 id="tratamiento-de-saldo-insoluto-para-multisocios">Tratamiento de Saldo Insoluto para Multisocios</h4>
+<p>Este código se encarga de gestionar los saldos que no han sido pagados por los multisocios. Su objetivo es asegurar que se manejen adecuadamente las deudas pendientes, facilitando así un mejor control financiero.</p>
+<pre><code class="language-python">if contrato in ['Multisocios']:
+df_0_3['FECHA_FIN_CRED']=np.where(df_0_3['BASE']=='GES',np.maximum(df_0_3['FECHA_VENCIMIENTO'],df_0_3['FECHA_FIN_CRED']),df_0_3['FECHA_VENCIMIENTO'])
+df_0_3['NCUOTAS']=((df_0_3['FECHA_FIN_CRED']-df_0_3['FECHA_EFECTO']).dt.days/365*12).round(0)
+df_0_3['NCUOTAS FALTANTES']=((df_0_3['FECHA_FIN_CRED']-fecha_cierre).dt.days/365*12).round(0)
+df_0_3['PERIODO_EFECTO']=df_0_3['FECHA_EFECTO'].dt.year*100+df_0_3['FECHA_EFECTO'].dt.month
+df_0_3=completa_campo_total(df_0_3,'TASA_CRED',[['PRODUCTO','PERIODO_EFECTO'],['PERIODO_EFECTO']], parameters)
+df_0_3['SALDO INSOLUTO CALCULADO']=np.where(df_0_3['FECHA_FIN_CRED']&lt;fecha_cierre,0,df_0_3['ICAPITAL']*(1-(1+df_0_3['TASA_CRED_FINAL'])**(-df_0_3['NCUOTAS FALTANTES']))/(1-(1+df_0_3['TASA_CRED_FINAL'])**(-df_0_3['NCUOTAS'])))
+df_0_3['MONTO ASEGURADO']=np.maximum(df_0_3['SALDO INSOLUTO CALCULADO'],0)
+df_final_0=df_0_3.copy()
+</code></pre>
+<h3 id="calculos-para-k-fijo">Cálculos para K-Fijo</h3>
+<p>Este segmento de código se encarga de realizar <strong>cálculos específicos</strong> relacionados con el concepto de K-fijo. Estos cálculos son fundamentales para el análisis y procesamiento de datos en el contexto que se esté trabajando.</p>
+<pre><code class="language-python">elif (tipo_contrato=='Vida')&amp;(contrato=='K-Fijo'):
+df_0_1['EXPOSICION MENSUAL']=1
+escribe_reporta(archivo_reporte,'Calculando edad de renovacion')
+df_0_1['EDAD RENOVACION'],df_0_1['ISSUE EDAD RENOV']=calcula_edad(df_0_1['RUT'],df_0_1['FEC_NAC'],fecha_inicio_mes,edad_casos_perdidos,108,archivo_reporte,reporta_issues=1, edad_inf = 18, aplica_edad_prom_cartera = 1)
+df_0_1['PLAZO MESES']=np.maximum(1,round((df_0_1['FECHA_VENCIMIENTO']-df_0_1['FECHA_EFECTO']).dt.days/(365.25/12),0))
+df_0_1['MONTO ASEGURADO']=df_0_1['ICAPITAL']
+df_0_2=df_0_1[df_0_1['FECHA_EFECTO']&lt;=fecha_cierre]
+df_final_0=df_0_2.copy()
+</code></pre>
+<h3 id="exportacion-de-edades-con-problemas">Exportación de Edades con Problemas</h3>
+<p>Este código se encargará de <strong>exportar</strong> datos relacionados con las edades que presentan <strong>problemas</strong>. Se procesarán y organizarán las edades para facilitar su análisis y uso posterior.</p>
+<p>El código realiza las siguientes acciones:</p>
+<ol>
+<li>
+<p><strong>Verifica columnas</strong>: Comprueba si existen las columnas <code>'ISSUE EDAD INGR'</code> y <code>'ISSUE EDAD RENOV'</code> en el dataframe <code>df_final_0</code>.</p>
+</li>
+<li>
+<p><strong>Filtra y exporta datos</strong>: Si hay problemas en las edades de ingreso o renovación (valores mayores a 0), filtra los registros correspondientes y los guarda en archivos CSV:</p>
+</li>
+<li>Para <strong>edades de ingreso</strong>:</li>
+</ol>
+<pre><code class="language-python">if 'ISSUE EDAD INGR' in df_final_0.columns:
+if sum(df_final_0['ISSUE EDAD INGR'])&gt;0: df_final_0[df_final_0['ISSUE EDAD INGR']==1].to_csv(ruta_output+'0. Edades de Ingreso a Revisar.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
+if 'ISSUE EDAD RENOV' in df_final_0.columns:
+if sum(df_final_0['ISSUE EDAD RENOV'])&gt;0: df_final_0[df_final_0['ISSUE EDAD RENOV']==1].to_csv(ruta_output+'0. Edades de Renovacion a Revisar.csv',sep=separador_output,decimal=decimal_output,date_format='%d-%m-%Y',index=False)
+escribe_reporta(archivo_reporte,'El dataframe input luego de ser pre-procesado posee una prima neta de {}'.format(np.nansum(df_final_0['PRIMA NETA ANUAL'])))
+</code></pre>
+<h2 id="ultimos-filtros">Últimos Filtros</h2>
+<p>Se aplicarán los <strong>últimos filtros</strong> a los datos para asegurar que la información sea precisa y relevante antes de su análisis final. Estos filtros ayudarán a eliminar cualquier dato no deseado o erróneo, mejorando así la calidad de los resultados.</p>
+<p>El código crea una nueva variable llamada <code>df_final_1</code> que contiene una copia de los datos de <code>df_final_0</code>. Solo se incluyen las filas donde la columna <strong>EXPOSICION MENSUAL</strong> es mayor que 0. Esto permite trabajar con un subconjunto específico de los datos originales.</p>
+<pre><code class="language-python">df_final_1=df_final_0[df_final_0['EXPOSICION MENSUAL']&gt;0].copy()
+</code></pre>
+<p>El código filtra un conjunto de datos para mantener solo aquellos registros que cumplen ciertas condiciones relacionadas con fechas. </p>
+<ol>
+<li>
+<p><strong>Primera línea</strong>: Se crea <code>df_final_2</code> que incluye registros de <code>df_final_1</code> donde la <strong>fecha de vencimiento</strong> es mayor o igual a <code>fecha_cierre</code> o es nula.</p>
+</li>
+<li>
+<p><strong>Segunda línea</strong>: Se crea <code>df_final_3</code> que incluye registros de <code>df_final_2</code> donde la</p>
+</li>
+</ol>
+<pre><code class="language-python">df_final_2=df_final_1[(df_final_1['FECHA_VENCIMIENTO']&gt;=fecha_cierre)|(df_final_1['FECHA_VENCIMIENTO'].isnull())]
+df_final_3=df_final_2[(df_final_2['FECHA_ANULACION']&gt;=fecha_cierre)|(df_final_2['FECHA_ANULACION'].isnull())]
+return df_final_3
+</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.6ce7567c.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.88dd0f4e.min.js"></script>
+      
+    
+  </body>
+</html>
