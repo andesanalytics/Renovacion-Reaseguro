@@ -28,6 +28,7 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
     """
     
     # * Traemos parametros y tablas que vamos a usar
+    # ? Tablas
     # Contrato de reaseguro
     contrato: str = parameters.parameters['contrato']
     # Matriz para asignar el nombre del producto
@@ -40,6 +41,7 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
     # * Calculos previos del proceso antes de asignar el contrato de reaseguro
     # Preprocesamiento de la Data: A las querys que se extraen de los sistemas de administracion de BBDD (GES e Iaxis) se le realizan ciertas transformaciones a la data antes de asignar contratos de reaseguro y realizar los calculos
     df: pd.DataFrame = pre_procesamiento(parameters, tables)
+    # ? Calculos solicitados por el área de productos
     # ! Solicitado por el área de productos, anonimizamos el campo RUT
     df = identificador_anonimo(df, ['RUT'])
     #  ! Solicitado por el área de productos, eliminamos los productos de Hospitalario 100% y productos fallecimiento COVID'
@@ -72,6 +74,7 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
     df['CAPITAL CEDIDO TOTAL'] = df['CAPITAL CEDIDO POST EXCEDENTE'] + df['CAPITAL CEDIDO QS']
     df['PORCENTAJE CEDIDO FINAL']=np.where(df['MONTO ASEGURADO']>0,df['CAPITAL CEDIDO TOTAL']/df['MONTO ASEGURADO'],df['CESION QS']*df['PORCENTAJE LIMITE INDIVIDUAL']*df['PORCENTAJE LIMITE CONTRATO']*df['PORCENTAJE RETENCION EXCEDENTE'])
     
+    # ? Cruces solicitados por el área de productos
     # ! Solicitado por el área de productos
     # asignamos campos RAMO_REAS y COB_REAS 
     if contrato=='Desgravamen No Licitado':
@@ -100,17 +103,3 @@ def calculos_renovacion(parameters: Parameter_Loader, tables: Parameter_Loader, 
     df[df['CONTRATO_REASEGURO'].notnull()][campos_productos].to_csv(ruta_salidas+f'Detalle Renovacion {contrato} Uso Interno.txt.zip',sep=';',decimal='.',date_format='%d-%m-%Y',index=False)
     df[df['CONTRATO_REASEGURO'].notnull()][campos_renovacion].to_csv(ruta_salidas+f'Detalle Renovacion {contrato} Reaseguradores.txt.zip',sep=';',decimal='.',date_format='%d-%m-%Y',index=False)
     
-# * Parte del codigo que ejecuta un solo contrato, siempre que la ejecucion se realice desde este script    
-if __name__=='__main__':
-    # Define y crea las rutas de salidas
-    ruta_salidas='2 Output\\Resultados 2024-12-20\\'
-    Path(ruta_salidas).mkdir(parents=True, exist_ok=True)
-    # Carga
-    files: Parameter_Loader = Parameter_Loader(excel_file='Inputs Archivos Excel.xlsx', open_wb=True, ruta_extensa='')
-    files.get_reference(reference='archivo_calculos')
-    files.get_reference(reference='archivo_querys')
-    files.get_reference(reference='archivo_parametros')
-    parameters: Parameter_Loader = Parameter_Loader(excel_file=files.parameters['archivo_calculos'], open_wb=True)
-    carga_parametros(files, parameters)
-    tables: Parameter_Loader = files.parameters['archivo_parametros']
-    calculos_renovacion(parameters, tables, ruta_salidas)

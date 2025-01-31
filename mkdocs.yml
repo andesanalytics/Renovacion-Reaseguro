@@ -2,6 +2,11 @@ site_name: Documentacion
 site_url: http://Documentacion_Renovacion:Reaseguro.com
 theme:
   name: material
+  features:
+    - navigation.footer  # Para anotaciones
+  font:
+    text: Raleway
+    code: Red Hat Mono
   palette:
     # Dark Mode
     - scheme: slate
@@ -18,6 +23,27 @@ theme:
         name: Light mode
       primary: blue
       accent: deep orange
+markdown_extensions:
+  - attr_list
+  - pymdownx.highlight:
+      use_pygments: true  # Activa Pygments
+      anchor_linenums: true
+      line_spans: __span
+      linenums: true
+      pygments_style: monokai  # Cambia "monokai" por el tema que prefieras
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+extra_css:
+  - extra.css
 
 
 nav:

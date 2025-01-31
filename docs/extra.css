@@ -1,0 +1,39 @@
+:root {
+    /* Cambiar color de los operadores de asignación como "=" */
+    .md-typeset code span.o {
+    color: #ff7300a6 !important;  /* Color amarillo brillante */
+    font-weight: bold;
+  };
+  .md-typeset code span.p {
+    color: #ff5833de !important;  /* Cambia el color a un tono llamativo */
+    /* font-weight: bold; */
+  };
+  /* Cambiar el color de las palabras clave como return */
+.md-typeset code span.k {
+    color: #8000ff !important;  /* Morado brillante */
+    /* font-weight: bold; */
+  };
+  /* Cambiar color de self a rojo-rosado fuerte */
+.md-typeset code span.n {
+    color: #5c6ed3 !important;  /* Rojo-rosado fuerte */
+    /* font-weight: bold; */
+  }
+    /* Comentarios en un color más tenue */
+    --md-code-hl-comment-color: #808080 !important; 
+  
+    /* Palabras clave como def, return, import */
+    --md-code-hl-keyword-color: #3b0b27e7 ;
+  
+    /* Strings entre comillas */
+    --md-code-hl-string-color: #64fa50 !important;
+  
+    /* Números y constantes */
+    --md-code-hl-number-color: #461985 !important;
+  
+    /* Clases y funciones */
+    --md-code-hl-name-color: #02f516 !important;
+  
+    /* Variables */
+    --md-code-hl-variable-color: #ffb86c !important;
+  }
+

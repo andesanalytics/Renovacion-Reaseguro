@@ -104,6 +104,7 @@ class Parameter_Loader:
         Any
             Carga la referencia solo si no ha sido cargada antes.
         """
+        # ? Buscamos la referencia en caso de no estar almacenada
         if reference not in self.parameters:
             # Toma la dirección (fila, columna) de la referencia y obtiene el valor de la celda.
             self.parameters[reference] = self.wb[
@@ -114,7 +115,7 @@ class Parameter_Loader:
             
             print(f'Se ha cargado la variable "{reference}" del archivo "{self.excel_file}".')
         
-        # Retorna el valor correspondiente.
+        # ? Retorna el valor correspondiente.
         return self.parameters[reference]
 
         

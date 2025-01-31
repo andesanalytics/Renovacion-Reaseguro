@@ -2,118 +2,126 @@
 
 # Funcion ` Parameter_Loader`
 
-La función `Parameter_Loader` se encarga de **cargar parámetros y tablas** desde archivos de diferentes formatos, específicamente **Excel** (.xlsx) y **archivos de texto** como .txt y .csv.
+La clase `Parameter_Loader` está diseñada para **cargar parámetros y tablas** desde archivos en formato Excel (.xlsx) y archivos de texto como .txt o .csv.
 
 # Funcion `__init__`
 
-La función `__init__` es el **constructor** de la clase `Parameter_Loader`. Su propósito es inicializar una nueva instancia de la clase con los siguientes parámetros:
+La función `__init__` es el constructor de la clase `Parameter_Loader`. Su propósito es inicializar una nueva instancia de esta clase con los siguientes parámetros:
 
-- **`excel_file`**: Especifica la ruta del archivo Excel que se utilizará para cargar parámetros.
-- **`open_wb`**: Indica si se debe abrir el archivo Excel con la biblioteca `openpyxl` al crear la instancia.
-- **`ruta_extensa`**:
+- **`excel_file`**: Es un parámetro obligatorio que representa la ruta del archivo Excel (.xlsx) que se utilizará para cargar parámetros.
+- **`open_wb`**: Es un parámetro opcional de tipo booleano. Indica si el archivo Excel debe abrirse utilizando la biblioteca `openpyxl` al crear la instancia. Su valor predeterminado es `False`.
+- **`ruta_extensa`**: Es un parámetro opcional que permite almacenar rutas de archivos de texto o para uso genérico. Su valor predeterminado es una cadena vacía (`''`).
 
-Se **define un atributo** llamado `excel_file` que es de tipo **cadena de texto** (`str`). Este atributo almacenará el archivo de Excel proporcionado.
+- **Funcionalidad**: El código define un atributo para almacenar el nombre de un archivo Excel.
+
+- **Explicación**: Se crea un atributo llamado `excel_file` de tipo cadena de texto para guardar el nombre del archivo Excel proporcionado.
 ```python
+# Definimos atributo excel_file
 self.excel_file: str = excel_file
 ```
 
-Se define un **diccionario** llamado `parameters`, que se utiliza para **almacenar tablas o valores** que ya han sido cargados, actuando como un **cache**. Este diccionario puede contener claves de tipo `str` y valores de cualquier tipo (`Any`).
+- **Funcionalidad del código**: Inicializa un objeto con un diccionario para almacenamiento en caché, una ruta de archivo y opcionalmente carga un archivo Excel.
+
+- Se define un diccionario para almacenar datos que ya han sido procesados, lo que ayuda a evitar cálculos repetidos.
+- Se establece una variable para almacenar una ruta de archivo, útil para operaciones que requieren una ubicación de archivo específica.
+- Si se especifica, se carga un archivo Excel utilizando la biblioteca `openpyxl`, lo que permite manipular el contenido del archivo dentro del programa.
 ```python
+# Diccionario para almacenar tablas o valores que ya han sido cargados (cache).
 self.parameters: dict[str, Any] = {}
-```
-
-La instrucción `self.ruta_extensa: str = ruta_extensa` asigna un valor a la variable `ruta_extensa`, que se utiliza para almacenar una **ruta adicional o extensiva**. Esto es útil cuando se necesita guardar o elaborar una **ruta completa** en el contexto del programa.
-```python
+# Ruta adicional o extensiva, en caso de necesitar guardar/elaborar alguna ruta completa.
 self.ruta_extensa: str = ruta_extensa
-```
-
-Si `open_wb` es **True**, se abre un archivo Excel utilizando **openpyxl** y se guarda el objeto **Workbook** en `self.wb`.
-```python
+# Si se indica open_wb como True, se abre el archivo Excel con openpyxl y se guarda el objeto Workbook.
 if open_wb:
-self.wb: openpyxl.Workbook = openpyxl.load_workbook(excel_file)
+	self.wb: openpyxl.Workbook = openpyxl.load_workbook(excel_file)
 ```
 
 # Funcion `get_table_xlsx`
 
-La función `get_table_xlsx` **retorna un DataFrame** que contiene los datos de una hoja específica de un archivo Excel. Si los datos ya están cargados en memoria, se reutilizan en lugar de volver a cargarlos. 
+La función `get_table_xlsx` devuelve un *DataFrame* que contiene los datos de una hoja específica de un archivo Excel. Si la hoja ya ha sido cargada previamente, reutiliza la versión almacenada en memoria para optimizar el rendimiento. El nombre de la hoja se proporciona como argumento a la función.
 
-- **Parámetro**: `sheet_name` - Nombre de la hoja en el archivo Excel.
-- **Retorno**: Un DataFrame con el contenido de la hoja indicada.
+- **Funcionalidad del código**: Carga una hoja de Excel en un DataFrame solo si no ha sido cargada previamente y la almacena para su reutilización.
 
-El código verifica si el nombre de una hoja de Excel (`sheet_name`) ya ha sido cargado en `self.parameters`. Si no ha sido cargada, se importa la hoja desde el archivo Excel especificado y se almacena en `self.parameters`. Además, se imprime un mensaje confirmando la carga de la tabla. 
-
-**Importante:** Solo se carga la hoja si no ha sido cargada previamente.
+- Verifica si el nombre de la hoja de Excel ya está presente en un diccionario llamado `parameters`.
+- Si la hoja no está cargada, utiliza `pandas` para leer la hoja de Excel y la almacena en el diccionario bajo el nombre de la hoja.
+- Imprime un mensaje indicando que la hoja ha sido cargada exitosamente.
+- Devuelve el DataFrame correspondiente a la hoja solicitada.
 ```python
+# Carga la hoja de Excel solo si no ha sido cargada antes.
 if sheet_name not in self.parameters:
-self.parameters[sheet_name] = pd.read_excel(self.excel_file, sheet_name=sheet_name)
-print(f'Se ha cargado la tabla "{sheet_name}" del archivo "{self.excel_file}".')
-```
-
-La instrucción `return self.parameters[sheet_name]` **devuelve** un **DataFrame** asociado al nombre de la hoja especificada por `sheet_name`. Esto permite acceder a los datos almacenados en esa hoja de manera sencilla.
-```python
+	self.parameters[sheet_name] = pd.read_excel(self.excel_file, sheet_name=sheet_name)
+	print(f'Se ha cargado la tabla "{sheet_name}" del archivo "{self.excel_file}".')
+# Retorna el DataFrame correspondiente.
 return self.parameters[sheet_name]
 ```
 
 # Funcion `get_table_txt`
 
-La función **get_table_txt** carga un **DataFrame** desde un archivo de texto, como un archivo CSV o TXT. Si el **DataFrame** ya está en memoria, lo reutiliza. 
+La función `get_table_txt` carga un archivo de texto (como CSV o TXT) en un DataFrame. Si el archivo ya ha sido cargado previamente, reutiliza la versión almacenada en memoria para optimizar el rendimiento. Los parámetros que recibe son:
 
-**Parámetros**:
-- `file_path`: Ruta del archivo a cargar.
-- `decimal`: Carácter que indica el separador decimal.
-- `separador`: Separador de campos en el archivo.
-- `campos_fecha`: Columnas a interpretar como fechas (op
+- `file_path`: la ruta del archivo de texto que se desea cargar.
+- `decimal`: el carácter que se utiliza como separador decimal en el archivo.
+- `separador`: el carácter que separa los campos dentro del archivo.
+- `campos_fecha`: columnas que deben ser tratadas como fechas, este parámetro es opcional.
 
-El código verifica si un archivo específico (`file_path`) ya ha sido cargado. Si no lo ha sido, carga los datos del archivo en un **DataFrame** de pandas utilizando varias configuraciones, como el formato de fecha y la codificación. Luego, imprime un mensaje confirmando que la tabla ha sido cargada. 
+El resultado es un DataFrame que contiene los datos del archivo especificado.
 
-**Importante**: Solo se carga el archivo si no se ha hecho previamente.
+- **Funcionalidad del código**: Carga un archivo de texto en un DataFrame de pandas solo si no ha sido cargado previamente, y lo retorna.
+
+- Verifica si el archivo ya ha sido cargado revisando si su ruta está en `self.parameters`.
+- Si el archivo no está cargado, procede a leerlo usando `pandas.read_csv`.
+- Define el archivo a cargar mediante la variable `file_path`.
+- Especifica el carácter decimal y el separador de columnas a través de las variables `decimal` y `separador`.
+- Configura el formato de fecha como 'día-mes-año' para los campos especificados en `campos_fecha`.
+- Utiliza la codificación 'latin-1' para leer el archivo.
+- Establece `low_memory=False` para manejar archivos grandes sin problemas de memoria.
+- Al cargar el archivo, almacena el DataFrame resultante en `self.parameters` usando `file_path` como clave.
+- Imprime un mensaje confirmando que el archivo ha sido cargado.
+- Finalmente, retorna el DataFrame asociado al archivo cargado.
 ```python
+# Carga la tabla de texto solo si no ha sido cargada antes.
 if file_path not in self.parameters:
-self.parameters[file_path]: pd.DataFrame = pd.read_csv(
-file_path,
-decimal=decimal,
-sep=separador,
-date_format='%d-%m-%Y',
-parse_dates=campos_fecha,
-encoding='latin-1',
-low_memory=False  # Evita problemas con archivos muy grandes
-)
-print(f'Se ha cargado la tabla desde el archivo "{file_path}".')
-```
-
-La instrucción `return self.parameters[file_path]` **devuelve** un **DataFrame** que está asociado a la ruta de archivo especificada por `file_path`. Esto permite acceder a los datos almacenados en esa ubicación.
-```python
+	self.parameters[file_path]: pd.DataFrame = pd.read_csv(
+		file_path,
+		decimal=decimal,
+		sep=separador,
+		date_format='%d-%m-%Y',
+		parse_dates=campos_fecha,
+		encoding='latin-1',
+		low_memory=False  # Evita problemas con archivos muy grandes
+	)
+	print(f'Se ha cargado la tabla desde el archivo "{file_path}".')
+# Retorna el DataFrame correspondiente.
 return self.parameters[file_path]
 ```
 
 # Funcion `get_reference`
 
-La función `get_reference` obtiene el **valor de una celda** en un archivo Excel, utilizando un **nombre definido** que apunta a esa celda. Recibe como parámetro el nombre definido y devuelve el valor correspondiente de la celda.
+La función `get_reference` busca y devuelve el valor de una celda en un archivo Excel. Esta celda está identificada por un nombre definido en el libro de Excel. Utiliza la biblioteca `openpyxl` para acceder a la propiedad `defined_names`. Si el valor de la celda ya ha sido cargado previamente, no lo vuelve a cargar.
 
-La instrucción `if reference not in self.parameters:` verifica si una **referencia** no ha sido previamente cargada en **parameters**. Si no está presente, se procede a cargarla. Esto asegura que la referencia se cargue solo una vez.
+- **Funcionalidad del código**: Carga un valor de una celda de Excel en un diccionario si no está previamente almacenado.
+
+- Verifica si una referencia específica no está presente en el diccionario `self.parameters`.
+- Si la referencia no está almacenada, busca su ubicación en el archivo Excel.
+- Utiliza `self.wb.defined_names` para encontrar las coordenadas (fila y columna) de la referencia.
+- Accede al valor de la celda en la hoja de cálculo usando las coordenadas obtenidas.
+- Almacena el valor de la celda en el diccionario `self.parameters` bajo la clave de la referencia.
+- Imprime un mensaje indicando que la variable ha sido cargada desde el archivo Excel.
+- El archivo Excel del que se carga la variable está especificado por `self.excel_file`.
 ```python
+# ? Buscamos la referencia en caso de no estar almacenada
 if reference not in self.parameters:
+	# Toma la dirección (fila, columna) de la referencia y obtiene el valor de la celda.
+	self.parameters[reference] = self.wb[
+		next(self.wb.defined_names[reference].destinations)[0]
+	][
+		next(self.wb.defined_names[reference].destinations)[1]
+	].value  # type: ignore
+	print(f'Se ha cargado la variable "{reference}" del archivo "{self.excel_file}".')
 ```
 
-El código asigna un valor a `self.parameters[reference]` utilizando la dirección de una celda definida en un archivo de Excel. 
-
-1. **Obtiene la dirección** de la celda a partir de `self.wb.defined_names[reference].destinations`.
-2. **Accede al valor** de esa celda.
-3. Imprime un mensaje confirmando que se ha cargado la variable correspondiente desde el archivo Excel.
-
-**Importante:** Se utiliza un comentario para
+- **Funcionalidad**: El código devuelve un valor específico de un diccionario o estructura similar utilizando una clave proporcionada.
+- Utiliza la clave `reference` para acceder y retornar el valor asociado en `self.parameters`.
 ```python
-self.parameters[reference] = self.wb[
-next(self.wb.defined_names[reference].destinations)[0]
-][
-next(self.wb.defined_names[reference].destinations)[1]
-].value  # type: ignore
-print(f'Se ha cargado la variable "{reference}" del archivo "{self.excel_file}".')
-```
-
-La instrucción `return self.parameters[reference]` **devuelve un valor** específico de una colección llamada `parameters`, utilizando un identificador llamado `reference`. 
-
-El comentario indica que esta acción **retorna el valor correspondiente** a esa referencia.
-```python
+# ? Retorna el valor correspondiente.
 return self.parameters[reference]
 ```

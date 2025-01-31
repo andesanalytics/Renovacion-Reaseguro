@@ -2,7 +2,6 @@
 Este script contiene todas las funciones externas que ayudan ya sea a preprocesar la data o a calcular el reaseguro
 """
 
-# Importamos librerias que vamos a utilizar
 import pandas as pd
 import numpy as np
 import time
@@ -83,11 +82,13 @@ def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parame
     combinacion_list = list(combinacion)
     # Campos que no vamos a cruzar
     combi_out=list(set(lista_campos).difference(combinacion_list))
+    # Creamos la variable tabla_parametros_filtrada que contendra solo los registros que vamos a cruzar en esta combinacion
     tabla_parametros_filtrada = tabla_parametros_filtrada.dropna(subset=combinacion_list) # type: ignore
     tabla_parametros_quitar: pd.DataFrame=tabla_parametros_filtrada.dropna(subset=combi_out,how='all')
     tabla_parametros_filtrada=tabla_parametros_filtrada.loc[tabla_parametros_filtrada.index.difference(tabla_parametros_quitar.index)].reset_index(drop=True)
-    if tabla_parametros_filtrada.empty: return pd.DataFrame(),df,tabla_parametros
-    else:
+    # * Asignacion de contratos de reaseguro basados en una combinacion especifica
+    # En caso de que tabla_parametros_filtrada sea no vacia comenzamos con el proceso de asignacion
+    if not tabla_parametros_filtrada.empty:
         tpf_sin_inicio: pd.DataFrame=tabla_parametros_filtrada[tabla_parametros_filtrada['INICIO DEL CONTRATO'].isnull()].copy()
         tpf_con_inicio: pd.DataFrame=tabla_parametros_filtrada[~tabla_parametros_filtrada['INICIO DEL CONTRATO'].isnull()].copy()
         # Pregunta si necesitamos hacer un merge o merge_asof, en caso de tener cambio de contratos en el tiempo
@@ -113,7 +114,8 @@ def filtra_una_combinacion(df: pd.DataFrame,lista_campos: list[str],tabla_parame
         df_filtrado=df_filtrado.drop(columns=['INDICE'])
         tabla_parametros_a_filtrar=tabla_parametros
         return df_filtrado,df_a_filtrar,tabla_parametros_a_filtrar
-
+    # En caso de que tabla_parametros_filtrada sea vacia retornamos un dataframe vacio
+    else : return pd.DataFrame(),df,tabla_parametros
 
 def asignacion_contratos(df: pd.DataFrame, parameters: Parameter_Loader, tables: Parameter_Loader,mantiene_na: int = 0) -> pd.DataFrame:
     """Asignacion de contratos de reaseguro, de acuerdo al contrato seleccionado
@@ -787,13 +789,7 @@ def completa_campo(df: pd.DataFrame,campo_rellenar: str,campos_agrupar: list[str
     return df_final
     
 
-def completa_campo_total(
-    df: pd.DataFrame,
-    campo_completar: str,
-    listas_campos_agrupar: List[str],
-    parameters: Parameter_Loader,
-    campo_cero: bool = False
-) -> pd.DataFrame:
+def completa_campo_total(df: pd.DataFrame,campo_completar: str,listas_campos_agrupar: List[str],parameters: Parameter_Loader,campo_cero: bool = False) -> pd.DataFrame:
     """
     Completa valores nulos o no válidos en un campo específico de un DataFrame mediante
     agregaciones sucesivas. Finalmente, rellena los valores que siguen nulos con el
@@ -925,40 +921,47 @@ def recargos(df:pd.DataFrame, parameters: Parameter_Loader,calcula_recargos=1) -
     pd.DataFrame
         dataframe de asegurados con recargos
     """
+    # Cargo parametros que voy a utilizar
     ruta_recargos: str = parameters.parameters['ruta_recargos']
     separador_input: str = parameters.parameters['separador_input']
     decimal_input: str = parameters.parameters['decimal_input']
     ruta_output: str = parameters.parameters['ruta_output']
     fecha_inicio_mes: str = parameters.parameters['fecha_inicio_mes']
+    # Redefino el nombre de la prima de reaseguro, si e sque ya viene
     df.rename(columns={'PRIMA REASEGURO':'PRIMA REASEGURO SIN RECARGO'},inplace=True)
     cols_df_final=list(df.columns)+['RECARGO']
-    # CALCULOS PARA IAXIS
+    # * Calculos de recargos para los registros que provienen de la base de datos de iAxis 
+    # columnas de fecha dentro de la data de recargos
     cols_date_iaxis=['FECHA_INICIO_RECARGO']
-    # recargos_iaxis=pd.read_csv(ruta_recargos+'1. Inputs Auxiliares\\Recargos\\'+'Recargos iAxis '+str(periodo)+'.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False,date_format='%d-%m-%Y',parse_dates=cols_date_iaxis)
+    # Cargamos base de recargos
     recargos_iaxis=pd.read_csv(ruta_recargos+'1. Inputs Auxiliares\\Recargos\\'+'Recargos iAxis.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False,date_format='%d-%m-%Y',parse_dates=cols_date_iaxis)
-    # extraprima_iaxis=recargos_iaxis[(recargos_iaxis['FECHA_INICIO_RECARGO']<=fecha_cierre)&(recargos_iaxis['TIPO_RECARGO']=='Extraprima (tanto por mil)')&(recargos_iaxis['VALOR_RECARGO']>0)][['SSEGURO','NRIESGO','CODIGO COBERTURA IAXIS','VALOR_RECARGO']]
-    # sobreprima_iaxis=recargos_iaxis[(recargos_iaxis['FECHA_INICIO_RECARGO']<=fecha_cierre)&(recargos_iaxis['TIPO_RECARGO']=='Sobreprima (%)')&(recargos_iaxis['VALOR_RECARGO']>0)][['SSEGURO','NRIESGO','CODIGO COBERTURA IAXIS','VALOR_RECARGO']]
+    # Separamos la data anterior en data de sobreprima y data de extraprima
     extraprima_iaxis=recargos_iaxis[(recargos_iaxis['TIPO_RECARGO']=='Extraprima (tanto por mil)')&(recargos_iaxis['VALOR_RECARGO']>0)][['SSEGURO','NRIESGO','CODIGO COBERTURA IAXIS','VALOR_RECARGO']]
     sobreprima_iaxis=recargos_iaxis[(recargos_iaxis['TIPO_RECARGO']=='Sobreprima (%)')&(recargos_iaxis['VALOR_RECARGO']>0)][['SSEGURO','NRIESGO','CODIGO COBERTURA IAXIS','VALOR_RECARGO']]
+    # Algunos cambios de columnas
     extraprima_iaxis.rename(columns={'VALOR_RECARGO':'VALOR_RECARGO_EXTRAPRIMA'},inplace=True)
     sobreprima_iaxis.rename(columns={'VALOR_RECARGO':'VALOR_RECARGO_SOBREPRIMA'},inplace=True)
+    # Separamos los registros de expuestos provenientes de iAxis
     df_iaxis=df[df['BASE']=='IAXIS'].copy()
+    # Cruces con data de sobreprima y extraprima
     df_iaxis=df_iaxis.merge(extraprima_iaxis,how='left',on=['SSEGURO','NRIESGO','CODIGO COBERTURA IAXIS'])
     df_iaxis=df_iaxis.merge(sobreprima_iaxis,how='left',on=['SSEGURO','NRIESGO','CODIGO COBERTURA IAXIS'])
+    # Acá está la opción de calcular o no los recargos, dependiendo si la data ya viene con el calculo de la prima de reaseguro
     if calcula_recargos==1:
         df_iaxis['RECARGO']=(df_iaxis['VALOR_RECARGO_SOBREPRIMA'].fillna(0)/100*df_iaxis['PRIMA REASEGURO SIN RECARGO']+df_iaxis['VALOR_RECARGO_EXTRAPRIMA'].fillna(0)/1000*df_iaxis['CAPITAL CEDIDO TOTAL']*1/12)*df_iaxis['PARTICIPACION DEL REASEGURADOR']
         df_iaxis[df_iaxis['RECARGO']>0].to_csv(ruta_output+'3. Recargos iAxis Detalle.csv',sep=';')
     else: 
-        # df_iaxis['RECARGO']=np.where((df_iaxis['VALOR_RECARGO_SOBREPRIMA'].isnull())&(df_iaxis['VALOR_RECARGO_EXTRAPRIMA'].isnull()),0,1)
         df_iaxis['RECARGO']=df_iaxis['VALOR_RECARGO_SOBREPRIMA'].fillna(0)/100
-    # CALCULOS PARA GES
-    # recargos_ges_cr=pd.read_csv(ruta_recargos+'1. Inputs Auxiliares\\Recargos\\'+'Recargos GES Credit '+str(periodo)+'.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
-    # recargos_ges_ind=pd.read_csv(ruta_recargos+'1. Inputs Auxiliares\\Recargos\\'+'Recargos GES Individuales '+str(periodo)+'.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
+    # * Calculos de recargos para los registros que provienen de la base de datos de GES
+    # Lectura de datas (ind=individuales - cr=credit related)
     recargos_ges_cr=pd.read_csv(ruta_recargos+'1. Inputs Auxiliares\\Recargos\\'+'Recargos GES Credit.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
     recargos_ges_ind=pd.read_csv(ruta_recargos+'1. Inputs Auxiliares\\Recargos\\'+'Recargos GES Individuales.txt',sep=separador_input,decimal=decimal_input,encoding='latin-1',low_memory=False)
+    # Separamos los registros de expuestos provenientes de GES
     df_ges=df[df['BASE']=='GES'].copy()
+    # Cruces con data de ind y cr
     df_ges=df_ges.merge(recargos_ges_cr,how='left',left_on=['POLIZA','RUT','CERTIFICADO','CODIGO COBERTURA'],right_on=['POLIZA_T0057','RUT_T0057','SECUENCIAL','CODIGO_COBERTURA'],suffixes=['', '_x'])
     df_ges=df_ges.merge(recargos_ges_ind,how='left',left_on=['POLIZA','RUT','CERTIFICADO','CODIGO COBERTURA'],right_on=['POLIZA','RUT','SECUENCIAL','CODIGO_COBERTURA'],suffixes=['', '_x'])
+    # Acá está la opción de calcular o no los recargos, dependiendo si la data ya viene con el calculo de la prima de reaseguro
     if calcula_recargos==1:
         df_ges['RECARGO'] = (np.where((df_ges['FECHA_EFECTO'].dt.to_period('M') + df_ges['MESES_SOBREPRIMA_ACTIVIDAD'].fillna(0).astype(int)).dt.to_timestamp()<fecha_inicio_mes,0,df_ges['PRIMA REASEGURO SIN RECARGO']*df_ges['SOBREPRIMA_ACTIVIDAD'].fillna(0)/100)+\
                         np.where((df_ges['FECHA_EFECTO'].dt.to_period('M') + df_ges['MESES_SOBREPRIMA_MEDICO'].fillna(0).astype(int)).dt.to_timestamp()<fecha_inicio_mes,0,df_ges['PRIMA REASEGURO SIN RECARGO']*df_ges['SOBREPRIMA_MEDICO'].fillna(0)/100)+\
@@ -972,13 +975,14 @@ def recargos(df:pd.DataFrame, parameters: Parameter_Loader,calcula_recargos=1) -
                         np.where((df_ges['FECHA_EFECTO'].dt.to_period('M') + df_ges['MESES_SOBREPRIMA_MEDICO'].fillna(0).astype(int)).dt.to_timestamp()<fecha_inicio_mes,0,df_ges['SOBREPRIMA_MEDICO'].fillna(0)/100)+\
                         np.where((df_ges['FECHA_EFECTO'].dt.to_period('M') + df_ges['MESES_SOBREPRIMA_DEPORTE'].fillna(0).astype(int)).dt.to_timestamp()<fecha_inicio_mes,0,df_ges['SOBREPRIMA_DEPORTE'].fillna(0)/100)+\
                         df_ges['PORCENTAJE_RECARGO'].fillna(0)/100
-    # CREACION DF_FINAL
+    # Unimos los dataframes de GES e Iaxis
     df_final=pd.concat([df_iaxis[cols_df_final],df_ges[cols_df_final]],axis=0)
+    # Calculamos la nueva prima de reaseguro en caso de que el parametro calcula_recargos sea igual a 1. Luego retornamos
     if calcula_recargos==1: df_final['PRIMA REASEGURO']=df_final['PRIMA REASEGURO SIN RECARGO']+df_final['RECARGO']
     return df_final
     
 
-def cruce_left(df_1:pd.DataFrame, df_2:pd.DataFrame, left_on: list[str], right_on: list[str], parameters: Parameter_Loader, suffixes: tuple[str,str]=('_df1', '_df2'), informa_no_cruces: int=1 , name: str = '') -> pd.DataFrame:
+def cruce_left(df_1:pd.DataFrame, df_2:pd.DataFrame, left_on: list[str], right_on: list[str], parameters: Parameter_Loader, suffixes: tuple[str,str]=('_df1', '_df2'), informa_no_cruces: int=1 , name: str='') -> pd.DataFrame:
     """Permite cruzar mediante merge left dos tablas
 
     Parameters
@@ -1005,6 +1009,7 @@ def cruce_left(df_1:pd.DataFrame, df_2:pd.DataFrame, left_on: list[str], right_o
     pd.DataFrame
         df cruzado
     """
+    # Extraemos parametros de rutas de salida y separadores y decimales de exportacion
     ruta_output: str = parameters.parameters['ruta_output']
     separador_output: str = parameters.parameters['separador_output']
     decimal_output: str = parameters.parameters['decimal_output']
@@ -1015,27 +1020,26 @@ def cruce_left(df_1:pd.DataFrame, df_2:pd.DataFrame, left_on: list[str], right_o
     # Encuentra los registros en df_1 que no cruzaron con df_2 
     no_cruces = merged_df[merged_df['origen'] == 'left_only']
 
-    if no_cruces.empty:
-        informa_no_cruces = 0
-    else:
-        informa_no_cruces = 1
-
     # Informar en archivo.txt si es necesario
-    if informa_no_cruces == 1:
+    if informa_no_cruces == 1 and not no_cruces.empty:
         # Guarda esos registros en un archivo no_cruces.txt en formato de texto tabular (separado por tabuladores).
         print(f'Una cantidad de {no_cruces.shape[0]} registros no cruzaron')
         print(no_cruces[left_on].drop_duplicates(keep='first'))
         no_cruces.to_csv(f'{ruta_output}{name} no cruces.txt', index=False,sep=separador_output,decimal=decimal_output)
+    # Informa en caso de tener dobles cruces en el dataframe de la izquierda
     if len(merged_df) > len(df_1) :
         # Identificar duplicados en merged_df que no estaban en df_1
+        # Definimos duplicados_df_2 como los registros del df_2 que tienen duplicada su llave right_on
         duplicados_df_2 =df_2[df_2.duplicated(subset=right_on, keep=False)]
+        # definimos df_1_sin_duplicados quitando todos los duplicados del df_1
         df_1_sin_duplicados=df_1.drop_duplicates(keep='first')
+        # Definimos duplicados_comunes como el cruce entre duplicados_df_2 y df_1_sin_duplicados
+        # Acá obtenemos los registros que nos estan causando problemas a traves de un cruce de tipo inner
         duplicados_comunes = duplicados_df_2.merge(df_1_sin_duplicados, how='inner', left_on=right_on, right_on=left_on)
-
-
+        # Exportamos los registros para observarlos posteriormente
         duplicados_comunes[df_2.columns].to_csv(f'{ruta_output}{name} duplicados.txt',sep=separador_output,decimal=decimal_output)
-        print("Registros duplicados:")
-        print(duplicados_comunes[df_2.columns])
+        # Print informativo
+        print(f"Registros duplicados:\n{duplicados_comunes[df_2.columns]}")
     else:
         print(f"No hay duplicados adicionales. Tamaño original de df_1: {len(df_1)}")
     merged_df = merged_df.drop(['origen'], axis = 1)
@@ -1064,9 +1068,11 @@ def identificador_anonimo(df:pd.DataFrame, campos: list[str]) -> pd.DataFrame:
     np.random.seed(1000)  # Fijar semilla para reproducibilidad
     valores_aleatorios = np.random.choice(range(1000000, 9999999),size=nro_ruts,replace=False)
     identificadores_unicos['IDENTIFICADOR'] = valores_aleatorios
+    # * Revisar si se cumple que el numero de identificadores unicos coincide con el numero de unicos en la data original
     # Hacer un merge para asignar los valores anonimizados al DataFrame original
     if len(identificadores_unicos['IDENTIFICADOR'].drop_duplicates()) ==nro_ruts:
         df = df.merge(identificadores_unicos, on=campos, how='left')
+    # En caso de no cumplirse la condicion 
     else:
         print('Revisar los identificadores unicos. No fueron bien asignados')
     return df
@@ -1097,16 +1103,17 @@ def calculo_fechas_renovacion(df: pd.DataFrame,campo_inicio: str,campo_fin: str,
     tuple[NDArray[np.int_],NDArray[np.datetime64]]
         entrega dos vectores, uno con la fecha de inicio de renovacion y otro con la fecha de fin de renovacion
     """
+    # Crea df auxiliar para no realizar cambios al df original
     df_aux=df.copy()
+    # Crea variables cierre_month y cierre_year
     cierre_month=periodo_cierre%100
     cierre_year=int(periodo_cierre/100)
-    # fecha_cierre=datetime.datetime(int(periodo_cierre/100),periodo_cierre%100,calendar.monthrange(int(periodo_cierre/100), periodo_cierre%100)[1])
-    # Defino los campos de dia mes y año para la fecha de la ultima renovacion
+    # Defino los campos de dia, mes y año para posteriormente calcular la fecha de inicio de renovacion
     df_aux['year']=cierre_year-np.where((df_aux[campo_inicio].dt.month>cierre_month)|((df_aux[campo_anulacion].dt.month*100+df_aux[campo_anulacion].dt.day<df_aux[campo_inicio].dt.month*100+df_aux[campo_inicio].dt.day)&(~df_aux[campo_anulacion].isnull())),1,0)
     df_aux['month']=df_aux[campo_inicio].dt.month
     df_aux['day']=np.where((df_aux[campo_inicio].dt.day==29)&(df_aux['month']==2)&(df_aux['year']%4>0),28,df_aux[campo_inicio].dt.day)
     df_aux['INICIO RENOVACION']=np.maximum(pd.to_datetime(df_aux[['year','month','day']]),df_aux[campo_inicio])
-    # Defino los campos de dia mes y año para la fecha de la proxima renovacion
+    # Defino los campos de dia, mes y año para posteriormente calcular la fecha de fin de renovacion
     df_aux['year']=df_aux['INICIO RENOVACION'].dt.year+1
     df_aux['day']=np.where((df_aux[campo_inicio].dt.day==29)&(df_aux['month']==2)&(df_aux['year']%4>0),28,df_aux[campo_inicio].dt.day)
     df_aux['FIN RENOVACION']=np.where(df_aux[campo_fin].isnull(),pd.to_datetime(df_aux[['year','month','day']]),np.minimum(pd.to_datetime(df_aux[['year','month','day']]),df_aux[campo_fin]))
@@ -1117,6 +1124,7 @@ def calculo_fechas_renovacion(df: pd.DataFrame,campo_inicio: str,campo_fin: str,
     else:
         series_inicio=df_aux['INICIO RENOVACION']
         series_fin=df_aux['FIN RENOVACION']
+    # Devuelvo dos series, la de inicio y fin de renovacion
     return series_inicio,series_fin
 
 
@@ -1129,22 +1137,25 @@ def automatizacion_querys(files: Parameter_Loader) -> None:
     files : Parameter_Loader
         Contiene informacion del archivo de querys que debemos mirar para este proceso
     """
-    # Parametros de la consulta
+    # Creamos la varible querys que es del tipo Parameter_Loader. Acá guardaremos todos los parametros asociados al proceso de querys
     querys: Parameter_Loader = Parameter_Loader(excel_file=files.parameters['archivo_querys'], open_wb=True, ruta_extensa='')
+    # Cargamos parametros dentro de la variables querys
     ruta_extensa: str = files.ruta_extensa
     periodo_inicio: int = querys.get_reference(reference='periodo_inicio')
     periodo_fin: int = querys.get_reference(reference='periodo_fin')
     querys.wb.close()
     parametros_split: pd.DataFrame = querys.get_table_xlsx(sheet_name = 'Split Querys').replace(np.nan, '', regex=True)
     parametros_querys: pd.DataFrame = querys.get_table_xlsx(sheet_name = 'Diccionario Querys').replace(np.nan, '', regex=True)
+    # Creamos diccionario_querys
     diccionario_querys: dict[Hashable, Any]=parametros_querys.set_index('QUERY').to_dict()
-    
+    # * Ciclo para ejecutar cada una de las querys activadas para su ejecucion
     for consulta in parametros_querys['QUERY']:
+        # obtiene del diccionario si la query debe ejecutarse o no
         aplica=diccionario_querys['APLICA'][consulta]
         if aplica==1: 
             ejecuta_query(consulta,periodo_inicio,periodo_fin,diccionario_querys,parametros_split, ruta_extensa)
             
-def ejecuta_query(consulta: str, periodo_inicio: int, periodo_fin: int, diccionario_querys: dict[str,Any], parametros_split: pd.DataFrame, ruta_extensa: str,name_file: str = None) -> None:
+def ejecuta_query(consulta: str, periodo_inicio: int, periodo_fin: int, diccionario_querys: dict[Hashable, Any], parametros_split: pd.DataFrame, ruta_extensa: str,name_file: str = None) -> None:
     """Ejecuta una query especifica
 
     Parameters
@@ -1170,7 +1181,7 @@ def ejecuta_query(consulta: str, periodo_inicio: int, periodo_fin: int, dicciona
     # Mostramos en pantalla que query estamos realizando
     print('Realizando consulta {}'.format(consulta))
     
-    # Calculos sobre el diccionario de contratos
+    # Calculos sobre el diccionario de querys
     columnas=diccionario_querys['CAMPOS QUERY'][consulta].split(',')
     cols_date = diccionario_querys['CAMPOS FECHAS'][consulta].split(',') if diccionario_querys['CAMPOS FECHAS'][consulta] else []
     sistema=diccionario_querys['SISTEMA'][consulta]
@@ -1180,42 +1191,35 @@ def ejecuta_query(consulta: str, periodo_inicio: int, periodo_fin: int, dicciona
     subcarpeta=diccionario_querys['SUBCARPETA'][consulta]
     tipo_calculo=diccionario_querys['TIPO CALCULO'][consulta]
     
-    # Calculo de fechas y periodos y otros parametros
+    # Calculo de fechas y periodos
     fecha_inicio=datetime.datetime(int(periodo_inicio/100),periodo_inicio%100,1)
     fecha_inicio=fecha_inicio-pd.offsets.MonthEnd(desfase_meses+1)+datetime.timedelta(days=1)
     fecha_fin=datetime.datetime(int(periodo_fin/100),periodo_fin%100,1)
     fecha_fin=fecha_fin-pd.offsets.MonthEnd(desfase_meses)
     periodo_fin=fecha_fin.year*100+fecha_fin.month
     periodo_inicio=fecha_inicio.year*100+fecha_inicio.month
+    # Calculo de rutas de exportacion
     if carpeta: ruta_exportar_query=f'{ruta_extensa}1 Input\\{tipo_calculo}\\{subcarpeta}\\{carpeta}\\'
     else: ruta_exportar_query=f'{ruta_extensa}1 Input\\{tipo_calculo}\\{subcarpeta}\\'
-    # Traemos el archivo de la query
+    # Traemos el archivo de la query, que viene en txt y le realizamos cambios de acuerdo al periodo de ejecucion de la query
+    # No todas las querys tienen dependencia de los periodos de inicio y fin
     with open(ruta_extensa+'0 Querys Automaticas\\'+consulta+'.sql', 'r') as query_txt: query = query_txt.read().replace('\n',' ').replace('fecha_inicio',str(fecha_inicio)[0:10]).replace('fecha_fin',str(fecha_fin)[0:10]).replace('periodo_fin',str(periodo_fin)[0:10]).replace('año_proceso',str(fecha_fin.year)).replace('mes_proceso',str(fecha_fin.month))
 
     # Conexion sql
     if sistema=='GES': connection = cx_Oracle.connect(user="USU_BCATALDO", password="SAmu3l.20204*",dsn="prod_zs.santanderseguros.cl.bsch:1526/gesvida",encoding="UTF-8")
-    # if sistema=='GES': connection = cx_Oracle.connect(user="USU_SLABRIN", password="ZS_3Ngreso",dsn="prod_zs.santanderseguros.cl.bsch:1526/gesvida",encoding="UTF-8")
-    # if sistema=='GES': connection = cx_Oracle.connect(user="USU_JTOBAR", password="31415Fermat",dsn="prod_zs.santanderseguros.cl.bsch:1526/gesvida",encoding="UTF-8")
-    # if sistema=='GES': connection = oracledb.connect(user="USU_JTOBAR", password="31415Fermat",dsn="prod_zs.santanderseguros.cl.bsch:1526/gesvida")
-    # if sistema=='GES': connection = cx_Oracle.connect(user="USU_YDAVILA", password="Actuarial7777!",dsn="prod_zs.santanderseguros.cl.bsch:1526/gesvida",encoding="UTF-8")
     if sistema=='IAXIS':connection = cx_Oracle.connect(user="USR_ZS_BCATALDO", password="SAturn0.20204*",dsn="zsiaxisbd.santanderseguros.cl.bsch:1521/praxis",encoding="UTF-8")    
-    # if sistema=='IAXIS':connection = oracledb.connect(user="USR_ZS_BCATALDO", password="Inicio_01",dsn="zsiaxisbd.santanderseguros.cl.bsch:1521/praxis")    
-    if sistema=='IAXIS TEST':connection = cx_Oracle.connect(user="AXIS_D401", password="F|=fX10JZ{p9",dsn="180.153.43.74:1521/praxis_predb",encoding="UTF-8")    
-    # Lectura de datos y pasamos a dataframe
+    # Lectura de datos y pasamos a dataframe, junto con algunos print que informan en que paso estamos
     cursor = connection.cursor()
     print('Ejecutando query')
     cursor.execute(query)
-    # cursor.execute("select t.aserut rut from altavida.t0058 t where rownum<100")
     print('Pegando resultados de la query')
     resultado_query = cursor.fetchall()
     df=pd.DataFrame(list(resultado_query))
+    # Acá realizamos warning en caso de que la consulta no arroje ningun registro
     if df.empty: 
         print(f'La consulta - {consulta} - arrojó 0 registros como resultado. REVISAR!')
-        if name_file is not None:
-            archivo_reporte_global=open(f'{ruta_extensa}4 Reportes del Proceso\\Reporte Proceso Cierre {name_file}.txt','a')
-            archivo_reporte_global.write(f'{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))} - Se ejecutó query {consulta}, pero el resultado arrojó una respuesta vacia. REVISAR!\n')
-            archivo_reporte_global.close()
         return
+    # Asignamos nombres de columnas de acuerdo a lo indicado en el diccionario de querys
     df.columns=columnas
     # Conversión a fechas de las columnas
     if len(cols_date)>0:    
@@ -1225,25 +1229,23 @@ def ejecuta_query(consulta: str, periodo_inicio: int, periodo_fin: int, dicciona
     # Exportamos la data
     print('Exportando datos de la query. La consulta tiene {} registros'.format(df.shape[0]))
     
+    # Acá definimos la terminacion del nombnre que tendra el archivo de acuerdo a diversas caracteristicas
     if tipo_exportar=='historico':terminacion_archivo='.txt' 
     if (tipo_exportar=='periodo')&(periodo_fin==periodo_inicio):terminacion_archivo=' '+str(periodo_fin)+'.txt'
     if (tipo_exportar=='periodo')&(periodo_fin!=periodo_inicio):terminacion_archivo=' '+str(periodo_inicio)+'-'+str(periodo_fin)+'.txt'
     if tipo_exportar=='fecha':terminacion_archivo=' ('+str(datetime.datetime.now())[0:10]+').txt'
     nombre_archivo_salida=consulta+terminacion_archivo
-    ######## DEBEMOS PEGAR DIRECTAMENTE EN LA RUTA QUE CORRESPONDE
-    ######## ADEMAS, DEBEMOS IMPORTAR EL SEPARADOR Y DECIMAL INPUT DE PARAMETROS PARA QUE COINCIDA CON LO QUE VAMOS A LEER EN EL CALCULO
+    # La variable carpeta indica si debemos guardar la query ejecutada directamente o si debemos hacerle split en distintos dataframes
     if carpeta:
         Path(ruta_exportar_query).mkdir(parents=True, exist_ok=True)
         df.to_csv(ruta_exportar_query+nombre_archivo_salida,sep=';',decimal='.',encoding='UTF-8',date_format='%d-%m-%Y',index=False)
+    # Revisamos en la tabla de splits si la query conrresponde que se particione o no
     parametros_split_filter=parametros_split[parametros_split['QUERY']==consulta]
+    # En caso de aplicar el split, llamamos a la funcion split_querys
     if not parametros_split_filter.empty : split_querys(df,parametros_split_filter,ruta_exportar_query,terminacion_archivo,sistema)
-    # Mido tiempo de ejecucion
+    # Mido tiempo de ejecucion e imprimo en pantalla
     total_time = round((time.time()-start_time)/60, 2)
     print('El tiempo total de ejecución fue de %s minutos' % total_time)
-    if name_file is not None:
-        archivo_reporte_global=open(f'{ruta_extensa}4 Reportes del Proceso\\Reporte Proceso Cierre {name_file}.txt','a')
-        archivo_reporte_global.write(f'{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))} - Se ejecutó query {consulta} \n')
-        archivo_reporte_global.close()
 
 
 def split_querys(df: pd.DataFrame,parametros_split_filter: pd.DataFrame,ruta_exportar_query: str,terminacion_archivo: str,sistema: str) -> None:
@@ -1262,18 +1264,26 @@ def split_querys(df: pd.DataFrame,parametros_split_filter: pd.DataFrame,ruta_exp
     sistema : str
         Sistema de Adm de BBDD (GES o IAXIS)
     """
+    # Creamos df auxiliar para no hacer cambios al df original
     df_aux=df.copy()
+    # Iteracion sobre todas las particiones que se deben realizar en el df
     for index,row in parametros_split_filter.iterrows():
+        # Definimos variables de la particion que se encuentran en la matriz de particiones (parametros_split_filter)
         contrato=row['CONTRATO']
         productos=list(map(int,row['PRODUCTOS CONTRATO'].split('-'))) if row['PRODUCTOS CONTRATO'] else ''
         polizas=list(map(int,row['POLIZAS CONTRATO'].split('-'))) if row['POLIZAS CONTRATO'] else ''
         tipo_condicion=row['TIPO CONDICION']
         aplica_split=row['APLICA']
+        # Creamos dos series de booleanos que indican si aplica la condicion de producto o poliza especificada para cada particion
         cond_prods=pd.Series(np.full(df_aux.shape[0],True)) if not productos else df_aux['PRODUCTO'].isin(productos) if tipo_condicion==1 else ~df_aux['PRODUCTO'].isin(productos)
         cond_pols=pd.Series(np.full(df_aux.shape[0],True)) if not polizas else df_aux['POLIZA'].isin(polizas) if tipo_condicion==1 else ~df_aux['POLIZA'].isin(polizas)
+        # Creamos df_export a partir de los registros del df_aux que cumplen con las condiciones de las dos series previamente creadas
         df_export=df_aux[cond_prods&cond_pols].copy()
+        # Redefinimos df_aux como los registros que no se fueron hacia esa particion
         df_aux=df_aux.loc[df_aux.index.difference(df_export.index)].reset_index(drop=True)
+        # Revisamos si la terminacion del archivo es de tipo GES o IAXIS
         terminacion_ges=' GES' if sistema=='GES' else ''
+        # Creamos la ruta a exportar y luego exportamos
         Path(f'{ruta_exportar_query}{contrato}\\').mkdir(parents=True, exist_ok=True)
         if (not df_export.empty)&(aplica_split==1): df_export.to_csv(f'{ruta_exportar_query}{contrato}\\Expuestos {contrato}{terminacion_ges}{terminacion_archivo}',sep=';',decimal='.',encoding='UTF-8',date_format='%d-%m-%Y',index=False)
 
