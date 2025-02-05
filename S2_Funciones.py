@@ -789,7 +789,7 @@ def completa_campo(df: pd.DataFrame,campo_rellenar: str,campos_agrupar: list[str
     return df_final
     
 
-def completa_campo_total(df: pd.DataFrame,campo_completar: str,listas_campos_agrupar: List[str],parameters: Parameter_Loader,campo_cero: bool = False) -> pd.DataFrame:
+def completa_campo_total(df: pd.DataFrame,campo_completar: str,listas_campos_agrupar: list[str],parameters: Parameter_Loader,campo_cero: bool = False) -> pd.DataFrame:
     """
     Completa valores nulos o no válidos en un campo específico de un DataFrame mediante
     agregaciones sucesivas. Finalmente, rellena los valores que siguen nulos con el
